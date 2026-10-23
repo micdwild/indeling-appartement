@@ -664,6 +664,14 @@ details[open] summary { margin-bottom: 8px; }
                icon:'<rect x="4" y="3" width="24" height="18" rx="1.5"/><circle cx="11" cy="9" r="3"/><circle cx="21" cy="9" r="2.3"/><circle cx="11" cy="16" r="2.3"/><circle cx="21" cy="16" r="3"/>' },
     sink:    { label:'Sink', onTop:true, note:'Sink with a tap. Choose 1 or 2 bowls and where the draining board is. It goes on the kitchen counter.',
                icon:'<rect x="3" y="6" width="26" height="15" rx="1.5"/><rect x="6" y="10" width="11" height="8" rx="1.5"/><path d="M21 10h5M21 13h5M21 16h5M11.5 6V3h4"/>' },
+    plantS:  { label:'Small plant', onTop:true, w:18, h:18, pot:'#b5654a', note:'A small plant in a pot (about 35 cm tall). It goes on top of a cupboard or other furniture; it may also stand on the floor.',
+               icon:'<path d="M12 15h8l-1.2 6h-5.6zM16 15v-3M16 12c-3.5-.5-5-3-5-5.5 3 0 4.7 2 5 5.5zM16 12c3.5-.5 5-3 5-5.5-3 0-4.7 2-5 5.5z"/>' },
+    plantM:  { label:'Plant', w:35, h:35, H:100, pot:'#e8e4dc', note:'A plant with broad leaves in a pot on the floor, about 1 m tall.',
+               icon:'<path d="M11 15h10l-1.5 7h-7zM16 15c0-4-2-8-6-10M16 15c0-4 2-8 6-10M16 15V5M10 5c-1 2 0 4 2 5M22 5c1 2 0 4-2 5"/>' },
+    plantL:  { label:'Large plant', w:50, h:50, H:170, pot:'#3b3d40', note:'A large plant in a big pot on the floor, about 1.7 m tall, with long stems and big leaves.',
+               icon:'<path d="M11 16h10l-1.5 6h-7zM16 16V2M16 9l-5-6M16 7l5-5M16 12l-6-3M16 11l6-2"/>' },
+    plantStand:{ label:'Plant stand', w:40, h:40, H:105, pot:'#2b2d30', note:'A round plant table with two levels (about 50 cm and 5 cm above the floor) with a trailing plant in a terracotta pot on top. Its colour is the table’s colour.',
+               icon:'<path d="M8 13h16M9 21h14M11 13l-1 8M21 13l1 8M13 13l1-4h4l1 4M16 9c-2-1-3-3-3-5M16 9c2-1 3-3 3-5M13 13c-2 1-3 3-3 5"/>' },
     tv:      { label:'TV', onTop:true, note:'Goes on the first piece of furniture it fits on. Drag it elsewhere, or use “Put it on” when it is selected.',
                icon:'<rect x="4" y="3" width="24" height="15" rx="1"/><path d="M16 18v3M11 21h10"/>' },
   };
@@ -673,7 +681,8 @@ details[open] summary { margin-bottom: 8px; }
   // ---------- Televisions ----------
   const isTV = p => p.kind === 'tv';
   // TVs, hobs and sinks stand on top of the counter or other furniture
-  const isOnTop = p => p.kind === 'tv' || p.kind === 'hob' || p.kind === 'sink';
+  const isOnTop = p => p.kind === 'tv' || p.kind === 'hob' || p.kind === 'sink' || p.kind === 'plant';
+  const isPlant = p => p.kind === 'plant' || /^plant/.test(p.type || '');
   const TV_DEPTH = 25;
 
   // Sink: 4 cm rim, bowls of their own width 5 cm apart, optional draining board on the left or right
@@ -705,6 +714,14 @@ details[open] summary { margin-bottom: 8px; }
   }
   // Top-down details drawn inside a hob or sink in the plan
   function itemDetail(p){
+    if (isPlant(p)){
+      // Leaves seen from above, spreading from the middle
+      const R = Math.min(p.w, p.h)/2*(p.type === 'plantStand' ? 0.8 : 1.15), n = p.type === 'plantL' ? 6 : 8;
+      return Array.from({ length:n }, (_, i) => {
+        const a = i*360/n + 15;
+        return `<ellipse cx="${R*0.45}" cy="0" rx="${R*0.5}" ry="${R*0.17}" transform="rotate(${a})" style="fill:${i % 2 ? '#5f9a52' : '#4f8a46'};stroke:none;opacity:.92"></ellipse>`;
+      }).join('');
+    }
     if (!isOnTop(p) && shapeOf(p) === 'drawers'){
       // Front (local bottom side) with the knob sticking out
       return `<line x1="${-p.w/2 + 2}" y1="${p.h/2 - 2}" x2="${p.w/2 - 2}" y2="${p.h/2 - 2}" style="stroke:#8fbfd8;stroke-width:2.5"></line>`
@@ -737,7 +754,7 @@ details[open] summary { margin-bottom: 8px; }
     return '';
   }
   const tvSize = inch => ({ w:Math.round(inch*2.54*0.8716), screenH:Math.round(inch*2.54*0.4903) });
-  const canHoldTV = o => o.placed && !isOnTop(o) && !isChair(o) && shapeOf(o) !== 'couch' && shapeOf(o) !== 'bed';
+  const canHoldTV = o => o.placed && !isOnTop(o) && !isChair(o) && !isPlant(o) && shapeOf(o) !== 'couch' && shapeOf(o) !== 'bed';
   function tvSupport(p){
     const pl = poly(p, 1);
     for (const o of pieces) if (o !== p && canHoldTV(o) && pl.every(pt => pointIn(pt, poly(o)))) return o;
@@ -750,7 +767,7 @@ details[open] summary { margin-bottom: 8px; }
     const fits = pieces.filter(o => o !== p && tvFits(p, o) && !pieces.some(t => t !== p && isTV(t) && t.placed && tvSupport(t) === o));
     return fits.find(o => ['box','rounded'].includes(shapeOf(o))) || fits[0] || null;
   }
-  const hasTV = o => pieces.some(t => isOnTop(t) && t.placed && tvSupport(t) === o);
+  const hasTV = o => pieces.some(t => isOnTop(t) && t.kind !== 'plant' && t.placed && tvSupport(t) === o);
   function tvStatus(p){
     const pl = poly(p, 1), bad = [];
     if (!insideRoom(pl)) bad.push('Sticks out through a wall');
@@ -765,7 +782,21 @@ details[open] summary { margin-bottom: 8px; }
     if (!sup && COUNTER.some(r => overlap(pl, rectPoly(r)))) bad.push('Hangs over the edge of the kitchen counter');
     if (bad.length) return { level:'bad', msgs:bad };
     return sup ? { level:'ok', msgs:['Stands on the ' + sup.name.toLowerCase()] }
+      : p.kind === 'plant' ? { level:'ok', msgs:['Stands on the floor'] }
       : { level:'warn', msgs:[isTV(p) ? 'Stands on the floor. Drag it onto a piece of furniture, or choose one below.' : 'Stands on the floor. Drag it onto the kitchen counter.'] };
+  }
+  // Small plants: put them on a cupboard or other furniture, trying a few spots along its length
+  function placeOnFurniture(p){
+    p.placed = true; p.rot = 0;
+    const cands = pieces.filter(o => o !== p && canHoldTV(o) && ['box', 'drawers', 'shelves', 'rounded', 'desk', 'table', 'angled', 'wardrobe'].includes(shapeOf(o)));
+    for (const o of cands){
+      const a = o.rot*Math.PI/180, c = Math.cos(a), s = Math.sin(a);
+      for (const f of [0.3, -0.3, 0]){
+        const lx = f*(o.w - p.w); p.x = o.x + lx*c; p.y = o.y + lx*s;
+        if (status(p).level === 'ok') return true;
+      }
+    }
+    return false;
   }
   const tucked = p => isChair(p) && pieces.some(o => o.placed && isTable(o) && overlap(poly(p,1), poly(o,1)));
 
@@ -773,17 +804,17 @@ details[open] summary { margin-bottom: 8px; }
   function render(){
     let g = '';
     const order = [...pieces.filter(isChair), ...pieces.filter(p => !isChair(p) && !isOnTop(p)), ...pieces.filter(isOnTop)];
-    const FILLS = { tv:'#25292d', hob:'#1d2023', sink:'#c3c9cd' };
+    const FILLS = { tv:'#25292d', hob:'#1d2023', sink:'#c3c9cd', plant:'#b5654a' };
     for (const p of order){
       if (!p.placed) continue;
       const st = status(p);
       const cls = ['piece', p.id===selId?'sel':'', st.level==='bad'?'bad':st.level==='warn'?'warn':''].join(' ');
       const fill = FILLS[p.kind] ? 'fill:' + FILLS[p.kind] : `fill:var(--f${p.color})${isTable(p) ? ';fill-opacity:.82' : ''}`;
       g += `<g class="${cls}" data-id="${p.id}" transform="translate(${p.x} ${p.y}) rotate(${p.rot})">`+
-           `<rect x="${-p.w/2}" y="${-p.h/2}" width="${p.w}" height="${p.h}" rx="${shapeOf(p) === 'rounded' ? Math.min(p.w, p.h)/2 : 3}" style="${fill}"></rect>${itemDetail(p)}</g>`;
+           `<rect x="${-p.w/2}" y="${-p.h/2}" width="${p.w}" height="${p.h}" rx="${shapeOf(p) === 'rounded' || isPlant(p) ? Math.min(p.w, p.h)/2 : 3}" style="${fill}"></rect>${itemDetail(p)}</g>`;
     }
     for (const p of order){
-      if (!p.placed || tucked(p) || hasTV(p) || p.kind === 'hob' || p.kind === 'sink') continue;
+      if (!p.placed || tucked(p) || hasTV(p) || p.kind === 'hob' || p.kind === 'sink' || isPlant(p)) continue;
       const [hx, hy] = halfExtents(p);
       const room = Math.min(hx*2, p.rot%180===0 ? p.w : p.rot%90===0 ? p.h : hx*2) - 6;
       const fs = Math.max(7, Math.min(13, room / (p.name.length*0.58)));
@@ -914,7 +945,8 @@ details[open] summary { margin-bottom: 8px; }
   function placeFree(p){
     p.placed = true;
     if (isTV(p)){ const o = bestTVSpot(p); if (o){ Object.assign(p, tvPlacementOn(p, o)); return; } }
-    if (isOnTop(p) && !isTV(p) && placeOnCounter(p)) return;
+    if (p.kind === 'plant'){ if (placeOnFurniture(p)) return; }
+    else if (isOnTop(p) && !isTV(p) && placeOnCounter(p)) return;
     for (const [x0, x1] of [[10, 615], [-345, -20]]) for (let y = 160; y <= 530; y += 10) for (let x = x0; x <= x1; x += 10){
       p.x = x; p.y = y;
       if (status(p).level === 'ok') return;
@@ -1115,6 +1147,14 @@ details[open] summary { margin-bottom: 8px; }
       const o = bestTVSpot(p);
       if (o){ Object.assign(p, tvPlacementOn(p, o), { placed:true }); toast(p.name + ' put on the ' + o.name.toLowerCase()); }
       else { p.placed = true; toast('No furniture is wide enough, so the TV stands on the floor'); }
+    } else if (addType === 'plantS'){
+      const w = Math.round(+$('addW').value), h = Math.round(+$('addL').value);
+      if (!(w >= 8 && w <= 60 && h >= 8 && h <= 60)){ history.pop(); return; }
+      p = { id:'plant' + Date.now(), kind:'plant', name:typed || 'Small plant', w, h, color:8, x:312, y:300, rot:0, placed:false, custom:true };
+      pieces.push(p);
+      s3.c[p.id] = TYPES.plantS.pot; save3();
+      if (placeOnFurniture(p)) toast(p.name + ' put on the ' + (pieces.find(o => o !== p && canHoldTV(o) && tvSupport(p) === o) || { name:'furniture' }).name.toLowerCase());
+      else { placeFree(p); toast(p.name + ' added on the floor'); }
     } else if (addType === 'hob' || addType === 'sink'){
       const sinkOpts = { bowls:addSink.bowls, drainer:addSink.drainer, bowlW:[Math.round(+$('addBw0').value), Math.round(+$('addBw1').value)],
         drainW:Math.round(+$('addDw').value), depth:Math.round(+$('addDep').value) };
@@ -1132,6 +1172,7 @@ details[open] summary { margin-bottom: 8px; }
       const color = [7,8,1,2,3,4,5,6].find(c => !used.has(c)) || 7;
       p = { id:'c'+Date.now(), name:typed || TYPES[addType].label, type:addType, w, h, color, x:312, y:300, rot:0, placed:false, custom:true };
       if (addType === 'chair') p.kind = 'chair';
+      if (TYPES[addType].pot){ s3.c[p.id] = TYPES[addType].pot; save3(); }
       pieces.push(p); placeFree(p);
       toast(p.name + ' added');
     }
@@ -1801,6 +1842,74 @@ details[open] summary { margin-bottom: 8px; }
     run(COUNTER[0][0] + R.fridgeW, 624, 'x', 541 - wd, 541);
     run(404, 541 - wd, 'z', 624 - wd, 624);
 
+    // ---- Plants: a pot (lathe) with soil, and stems with individual leaves, generated from a seed so each
+    // plant always looks the same. Styles: bushy (small), broad (medium), tall (large), trailing (stand).
+    function buildPlant(g, o){
+      let seed = 0; for (const ch of o.seed) seed = (seed*31 + ch.charCodeAt(0)) >>> 0;
+      const rnd = () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0)/4294967296; };
+      const V = (x, y, z) => new THREE.Vector3(x, y, z);
+      // Pot
+      const prof = [[0, 0], [o.potRb, 0], [o.potR, o.potH - 1.2], [o.potR + 0.6, o.potH - 1.2], [o.potR + 0.6, o.potH], [o.potR - 0.6, o.potH], [o.potR - 0.9, o.potH - 3]]
+        .map(([r, y]) => new THREE.Vector2(r/100, y/100));
+      const pot = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), o.potM);
+      pot.position.y = o.base/100; pot.castShadow = pot.receiveShadow = true; g.add(pot);
+      const soilY = o.base + o.potH - 2.5;
+      const soil = new THREE.Mesh(new THREE.CircleGeometry((o.potR - 0.9)/100, 32), mat('#3a2a1e', { roughness:1 }));
+      soil.rotation.x = -Math.PI/2; soil.position.y = soilY/100; g.add(soil);
+      // Leaves and stems
+      const greens = ['#3f7d3a', '#4b8a3f', '#356b33', '#5a9447'].map(c => mat(c, { roughness:0.55, side:THREE.DoubleSide }));
+      const stemM = mat('#58763a', { roughness:0.7 });
+      const leafGeo = (len, wid) => {
+        const s = new THREE.Shape();
+        s.moveTo(0, 0); s.quadraticCurveTo(wid/100, len*0.45/100, 0, len/100); s.quadraticCurveTo(-wid/100, len*0.45/100, 0, 0);
+        return new THREE.ShapeGeometry(s, 8);
+      };
+      const stem = (a, b, r = 0.35) => {
+        const t = new THREE.Mesh(new THREE.CylinderGeometry(r/100, r/100, a.distanceTo(b)/100, 6), stemM);
+        t.position.copy(a.clone().add(b).multiplyScalar(0.005));
+        t.quaternion.setFromUnitVectors(V(0, 1, 0), b.clone().sub(a).normalize()); g.add(t);
+      };
+      const leaf = (at, dir, len, wid) => {
+        const l = new THREE.Mesh(leafGeo(len, wid), greens[Math.floor(rnd()*greens.length)]);
+        l.position.copy(at).multiplyScalar(0.01);
+        l.quaternion.setFromUnitVectors(V(0, 1, 0), dir.clone().normalize());
+        l.rotateY(rnd()*Math.PI*2); l.rotateX((rnd() - 0.5)*0.6);
+        l.castShadow = true; l.receiveShadow = true; g.add(l);
+      };
+      const fh = Math.max(10, o.top - soilY);
+      const spray = (n, tiltMin, tiltMax, lenMin, lenMax, leafLen, leafWid, droop) => {
+        for (let i = 0; i < n; i++){
+          const a = i*2.39996 + rnd()*0.5, tilt = (tiltMin + rnd()*(tiltMax - tiltMin))*Math.PI/180;
+          const r0 = rnd()*o.potR*0.3, start = V(Math.cos(a)*r0, soilY, Math.sin(a)*r0);
+          const dir = V(Math.sin(tilt)*Math.cos(a), Math.cos(tilt), Math.sin(tilt)*Math.sin(a));
+          const tip = start.clone().addScaledVector(dir, (lenMin + rnd()*(lenMax - lenMin))*fh);
+          stem(start, tip);
+          const ll = leafLen*(0.8 + rnd()*0.4);
+          leaf(tip, V(dir.x*(1 + droop), dir.y*(1 - droop), dir.z*(1 + droop)), ll, leafWid*(0.8 + rnd()*0.4));
+        }
+      };
+      if (o.style === 'bushy') spray(16, 20, 70, 0.35, 0.7, 8, 3, 0.4);
+      if (o.style === 'broad') spray(20, 8, 45, 0.45, 0.75, 24, 7, 0.35);
+      if (o.style === 'tall') spray(9, 4, 22, 0.5, 0.72, 50, 12, 0.05);
+      if (o.style === 'trailing'){
+        spray(8, 15, 60, 0.3, 0.6, 7, 3.5, 0.3);
+        // Vines hanging over the rim, with leaves along them
+        for (let v = 0; v < 7; v++){
+          const a = v/7*Math.PI*2 + rnd()*0.4, out = V(Math.cos(a), 0, Math.sin(a)), drop = 15 + rnd()*25;
+          const p0 = out.clone().multiplyScalar(o.potR - 1).setY(soilY + 1);
+          const p1 = out.clone().multiplyScalar(o.potR + 5).setY(soilY + 2);
+          const p2 = out.clone().multiplyScalar(o.potR + 9).setY(soilY - drop*0.5);
+          const p3 = out.clone().multiplyScalar(o.potR + 11).setY(soilY - drop);
+          const curve = new THREE.CatmullRomCurve3([p0, p1, p2, p3].map(q => q.clone().multiplyScalar(0.01)));
+          g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.0025, 5, false), stemM));
+          for (let k = 1; k <= 6; k++){
+            const pt = curve.getPoint(k/6.5).multiplyScalar(100);
+            leaf(pt, out.clone().multiplyScalar(0.8).add(V(0, -0.5 + rnd()*0.4, 0)).add(V(rnd() - 0.5, 0, rnd() - 0.5).multiplyScalar(0.6)), 6 + rnd()*2, 3);
+          }
+        }
+      }
+    }
+
     // Furniture
     for (const p of pieces){
       if (!p.placed) continue;
@@ -1811,7 +1920,7 @@ details[open] summary { margin-bottom: 8px; }
       g.userData.piece = p.id;
       // Contact shadow on the floor under the piece: darker under solid pieces than under legged ones
       if (!isOnTop(p)){
-        const solid = ['box', 'couch', 'wardrobe', 'bed', 'drawers'].includes(shapeOf(p));
+        const solid = ['box', 'couch', 'wardrobe', 'bed', 'drawers', 'plantM', 'plantL'].includes(shapeOf(p));
         const b = new THREE.Mesh(new THREE.PlaneGeometry(p.w/75, p.h/75), blobMat(solid ? 0.5 : 0.28));
         b.rotation.x = -Math.PI/2; b.position.y = 0.004; b.renderOrder = 1; b.userData.noPT = true; g.add(b);
       }
@@ -1819,7 +1928,26 @@ details[open] summary { margin-bottom: 8px; }
       if (status(p).level === 'bad'){ m.emissive = new THREE.Color(0xcc2222); m.emissiveIntensity = 0.35; }
       const H = heightOf(p), w = p.w, d = p.h, kind = shapeOf(p);
       const sup = isOnTop(p) ? tvSupport(p) : null, base = !sup ? 0 : sup.counter ? R.counter : heightOf(sup);
-      if (kind === 'hob'){
+      if (kind === 'plant'){
+        const R = Math.min(w, d)/2;
+        buildPlant(g, { base, potR:R*0.9, potRb:R*0.65, potH:12, potM:m, style:'bushy', top:base + 35, seed:p.id });
+      } else if (kind === 'plantM' || kind === 'plantL'){
+        const R = Math.min(w, d)/2, big = kind === 'plantL';
+        buildPlant(g, { base:0, potR:R*0.85, potRb:R*0.65, potH:Math.min(big ? 42 : 32, H*0.3), potM:m, style:big ? 'tall' : 'broad', top:H, seed:p.id });
+      } else if (kind === 'plantStand'){
+        // Round plant table: two round shelves (top at about 50 cm and 5 cm) on three thin black legs
+        const R = Math.min(w, d)/2, legM = mat('#151515', { roughness:0.45, metalness:0.3 });
+        for (const y of [48, 3]){
+          const sh = new THREE.Mesh(new THREE.CylinderGeometry(R/100, R/100, 0.02, 48), m);
+          sh.position.y = (y + 1)/100; sh.castShadow = sh.receiveShadow = true; g.add(sh);
+        }
+        for (let i = 0; i < 3; i++){
+          const a = i*Math.PI*2/3 + Math.PI/6;
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.5, 10), legM);
+          leg.position.set(Math.cos(a)*(R - 2.5)/100, 0.25, Math.sin(a)*(R - 2.5)/100); leg.castShadow = true; g.add(leg);
+        }
+        buildPlant(g, { base:50, potR:R*0.5, potRb:R*0.38, potH:15, potM:mat('#b5654a', { roughness:0.85 }), style:'trailing', top:Math.max(H, 80), seed:p.id });
+      } else if (kind === 'hob'){
         // Black glass plate with 4 cooking zones
         part(g, mat('#0f1012', { roughness:0.15, metalness:0.3 }), 0, base, 0, w, 0.8, d);
         const ringM = mat('#5f656b', { side:THREE.DoubleSide }), r = Math.min(w, d);
