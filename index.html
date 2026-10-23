@@ -1862,30 +1862,44 @@ details[open] summary { margin-bottom: 8px; }
         part(g, m, 0, H - top, 0, w, top, d);
         for (const sx of [-1, 1]) for (const sz of [-1, 1]) part(g, m, sx*(w/2-6), 0, sz*(d/2-6), 5, H - top, 5);
       } else if (kind === 'chair'){
-        // Light chair: a thin shiny metal frame (four legs; the back legs run up into an upside-down U with a
-        // flat top) carrying a cushioned seat and, with a gap above it, a cushioned back panel in the chair's
-        // colour. The backrest is on the local +z side.
+        // Light chair (backrest on the local +z side):
+        // - one shiny metal tube forms the back legs and an upside-down U with a flat top and rounded corners;
+        // - each front leg bends backwards at seat level and runs along the side of the seat into the back leg;
+        // - a thin seat cushion that bends down a few cm at the front, between the side tubes;
+        // - a back cushion between the uprights, reaching up to the top of the U, with a gap above the seat.
         const chromeM = mat('#dde1e4', { roughness:0.18, metalness:0.9 });
-        const tube = (x1, y1, z1, x2, y2, z2, r = 0.9) => {
-          const a = new THREE.Vector3(x1, y1, z1), b = new THREE.Vector3(x2, y2, z2), len = a.distanceTo(b);
-          const t = new THREE.Mesh(new THREE.CylinderGeometry(r/100, r/100, len/100, 12), chromeM);
-          t.position.copy(a.clone().add(b).multiplyScalar(0.005));
-          t.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+        // Tube through a list of points (cm), with rounded bends of radius rc at the inner points
+        const bentTube = (pts, rc = 5, r = 0.9) => {
+          const V = pts.map(([x, y, z]) => new THREE.Vector3(x/100, y/100, z/100)), path = new THREE.CurvePath();
+          let from = V[0];
+          for (let i = 1; i < V.length - 1; i++){
+            const P = V[i], inDir = P.clone().sub(V[i-1]).normalize(), outDir = V[i+1].clone().sub(P).normalize();
+            const c = Math.min(rc/100, P.distanceTo(V[i-1])/2, P.distanceTo(V[i+1])/2);
+            const a = P.clone().addScaledVector(inDir, -c), b = P.clone().addScaledVector(outDir, c);
+            path.add(new THREE.LineCurve3(from, a)); path.add(new THREE.QuadraticBezierCurve3(a, P, b)); from = b;
+          }
+          path.add(new THREE.LineCurve3(from, V[V.length - 1]));
+          const t = new THREE.Mesh(new THREE.TubeGeometry(path, 96, r/100, 12, false), chromeM);
           t.castShadow = true; t.receiveShadow = true; g.add(t);
         };
-        const seatTop = Math.min(46, H*0.5), frameY = seatTop - 6, xs = w/2 - 2.5, zf = -(d/2 - 3), zb = d/2 - 3;
-        const top = H - 1, backLow = seatTop + 14;
-        for (const sx of [-1, 1]){
-          tube(sx*xs, 0, zf, sx*xs, frameY, zf);              // front leg
-          tube(sx*xs, 0, zb, sx*xs, top, zb);                 // back leg, running up into the backrest
-          tube(sx*xs, frameY, zf, sx*xs, frameY, zb, 0.8);    // side rail under the seat
-        }
-        tube(-xs, frameY, zf, xs, frameY, zf, 0.8);           // front rail
-        tube(-xs, top, zb, xs, top, zb);                       // flat top of the U
-        tube(-xs, frameY, zb, xs, frameY, zb, 0.8);           // back rail
+        const T = 3, seatTop = Math.min(46, H*0.5), railY = seatTop - T, xs = w/2 - 2, zf = -(d/2 - 3), zb = d/2 - 3, top = H - 1;
+        bentTube([[-xs, 0, zb], [-xs, top, zb], [xs, top, zb], [xs, 0, zb]], 6);
+        for (const sx of [-1, 1]) bentTube([[sx*xs, 0, zf], [sx*xs, railY, zf], [sx*xs, railY, zb]], 4);
+        // Seat cushion: side profile (z, y) with a front edge that rolls down, extruded across the width
+        const cw = 2*xs - 2.6, zBack = zb - 1, zFlat = -d/2 + 8, zNose = -d/2 + 1.5, drop = 4;
+        const sh = new THREE.Shape();
+        sh.moveTo(zBack/100, seatTop/100);
+        sh.lineTo(zFlat/100, seatTop/100);
+        sh.quadraticCurveTo((zNose - 0.5)/100, seatTop/100, zNose/100, (seatTop - drop)/100);
+        sh.lineTo((zNose + T*0.9)/100, (seatTop - drop - T*0.2)/100);
+        sh.quadraticCurveTo((zFlat - 2)/100, (seatTop - T)/100, zFlat/100, (seatTop - T)/100);
+        sh.lineTo(zBack/100, (seatTop - T)/100);
+        sh.closePath();
+        const sg = new THREE.ExtrudeGeometry(sh, { depth:(cw - 1.2)/100, bevelEnabled:true, bevelThickness:0.006, bevelSize:0.006, bevelSegments:3, curveSegments:16 });
+        sg.rotateY(-Math.PI/2); sg.translate((cw - 1.2)/200, 0, 0);
+        const seatMesh = new THREE.Mesh(sg, m); seatMesh.castShadow = true; seatMesh.receiveShadow = true; g.add(seatMesh);
         const keep = ROUND; ROUND = 3;
-        part(g, m, 0, frameY + 0.8, -0.5, w - 2, seatTop - frameY - 0.8, d - 5);            // seat cushion
-        part(g, m, 0, backLow, zb - 1.2, 2*xs - 2.2, top - 2.5 - backLow, 4);               // back cushion
+        part(g, m, 0, seatTop + 13, zb - 2.2, 2*xs - 2.4, top + 0.9 - (seatTop + 13), 3.5);   // back cushion up to the top of the U
         ROUND = keep;
       } else if (kind === 'desk'){
         // Standing desk: top on two narrow columns, each on a wide foot along the floor
