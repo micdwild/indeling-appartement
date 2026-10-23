@@ -210,6 +210,12 @@ details[open] summary { margin-bottom: 8px; }
 .switch input:checked ~ .track::after { transform: translateX(14px); }
 .switch input:focus-visible ~ .track { outline: 2px solid var(--accent); outline-offset: 2px; }
 .switch[hidden] { display: none; }
+/* Beautify: the path-traced picture lies over the normal 3D view and fades in while you stand still */
+.ptcanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity .5s ease; pointer-events: none; z-index: 1; }
+.ptbadge { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; max-width: calc(100% - 20px);
+  padding: 6px 10px; border-radius: 9px; background: color-mix(in srgb, var(--floor) 88%, transparent); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink); }
+.ptbadge[hidden] { display: none; }
+.ptbadge .fov input { width: 90px; }
 @media (prefers-reduced-motion: reduce) { .switch .track, .switch .track::after { transition: none; } }
 .fov { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .fov input { width: 120px; padding: 0; accent-color: var(--accent); }
@@ -222,7 +228,7 @@ details[open] summary { margin-bottom: 8px; }
 .stage3d { position: relative; border-radius: 8px; overflow: hidden; background: var(--paper); min-height: 320px; }
 .stage3d canvas { display: block; touch-action: none; }
 .stage-msg { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; color: var(--muted); padding: 16px; text-align: center; }
-.walkpad { position: absolute; right: 12px; bottom: 12px; display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 44px); gap: 4px; }
+.walkpad { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 44px); gap: 4px; }
 .walkpad button { font-size: 16px; padding: 0; background: var(--floor); opacity: .92; touch-action: none; }
 .walkpad [data-k="arrowup"] { grid-column: 2; grid-row: 1; }
 .walkpad [data-k="arrowleft"] { grid-column: 1; grid-row: 2; }
@@ -352,10 +358,17 @@ details[open] summary { margin-bottom: 8px; }
         <label class="switch" id="lowWrap" title="Lower the walls to 1 m so you can look in from the side">
           <input type="checkbox" id="v3low" role="switch"><span>Low walls</span><span class="track" aria-hidden="true"></span>
         </label>
+        <label class="switch" id="ptWrap" title="Stand still and the picture is recalculated with realistic light: real bounces, soft shadows and reflections">
+          <input type="checkbox" id="v3pt" role="switch"><span>Beautify</span><span class="track" aria-hidden="true"></span>
+        </label>
         <button id="v3reset">Reset camera</button>
       </div>
       <div class="stage3d" id="stage3d">
         <p class="stage-msg" id="stageMsg">Loading 3D…</p>
+        <div class="ptbadge" id="ptBadge" hidden>
+          <span id="ptText"></span>
+          <label class="fov" for="ptExp">Brightness<input id="ptExp" type="range" min="-1.5" max="1.5" step="0.1" value="0"></label>
+        </div>
         <div class="walkpad" id="walkpad" hidden>
           <button data-k="arrowup" aria-label="Walk forward">▲</button>
           <button data-k="arrowleft" aria-label="Turn left">◀</button>
@@ -1429,9 +1442,9 @@ details[open] summary { margin-bottom: 8px; }
         if (clear) walk.goal = { x, z }; else { walk.x = x; walk.z = z; walk.goal = null; }
         return;
       }
-      if (di >= 0) doorOpen[di] = !doorOpen[di];
+      if (di >= 0){ doorOpen[di] = !doorOpen[di]; if (T3.pt) ptMarkDirty(1400); }
       const wi = windowAt(hit);
-      if (wi >= 0) winOpen[wi] = !winOpen[wi];
+      if (wi >= 0){ winOpen[wi] = !winOpen[wi]; if (T3.pt) ptMarkDirty(1400); }
     });
     renderer.domElement.addEventListener('pointermove', e => {
       if (e.buttons) return;
@@ -1452,6 +1465,7 @@ details[open] summary { margin-bottom: 8px; }
     if (size.x === w && size.y === h) return;
     T3.renderer.setSize(w, h);
     T3.camera.aspect = w / h;
+    if (T3.pt) ptResize();
     if (view === 'walk') T3.camera.fov = walkFov();
     T3.camera.updateProjectionMatrix();
   }
@@ -1572,7 +1586,7 @@ details[open] summary { margin-bottom: 8px; }
     if (walking){
       const ceil = R.ceiling/100, blackM = mat('#151617', { roughness:0.5, metalness:0.3 });
       const glassM = mat('#f6f2ea', { transparent:true, opacity:0.75, roughness:0.25, side:THREE.DoubleSide, emissive:new THREE.Color('#ffd9a0'), emissiveIntensity:0 });
-      T3.glow.push([glassM, 0, 0.9]);
+      T3.glow.push([glassM, 0, 0.9]); glassM.name = 'lampglow';
       const cable = (x, z, yLow) => {
         const len = ceil - yLow; if (len <= 0) return;
         const c = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, len, 6), blackM);
@@ -1607,7 +1621,7 @@ details[open] summary { margin-bottom: 8px; }
         const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 20), blackM);
         cap.position.set(x, top + 0.005, z); G.add(cap);
         const bulbM = mat('#fff1d6', { emissive:new THREE.Color('#ffdca0'), emissiveIntensity:0.1 });
-        T3.glow.push([bulbM, 0.1, 1.4]);
+        T3.glow.push([bulbM, 0.1, 1.4]); bulbM.name = 'lampglow';
         const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), bulbM);
         bulb.position.set(x, top - 0.1, z); G.add(bulb);
         cable(x, z, top + 0.02);
@@ -1615,7 +1629,7 @@ details[open] summary { margin-bottom: 8px; }
       // Bedroom: a simple round ceiling lamp
       {
         const discM = mat('#f7f5f0', { emissive:new THREE.Color('#ffe2b0'), emissiveIntensity:0 });
-        T3.glow.push([discM, 0, 1.0]);
+        T3.glow.push([discM, 0, 1.0]); discM.name = 'lampglow';
         const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.06, 32), discM);
         disc.position.set(-1.82, ceil - 0.03, 3.4); G.add(disc);
       }
@@ -1633,7 +1647,7 @@ details[open] summary { margin-bottom: 8px; }
         geo.setAttribute('position', new THREE.Float32BufferAttribute(pts.flat().map(v => v/100), 3));
         geo.setAttribute('uv', new THREE.Float32BufferAttribute([0,1, 1,1, 1,0, 0,0], 2));
         geo.setIndex([0, 1, 2, 0, 2, 3]);
-        const m = new THREE.Mesh(geo, aoMat(op)); m.renderOrder = 1; G.add(m);
+        const m = new THREE.Mesh(geo, aoMat(op)); m.renderOrder = 1; m.userData.noPT = true; G.add(m);
       };
       const DOORS_AT = [[541, DOOR[0], DOOR[2]], [541, BED_DOOR[0], BED_DOOR[2]]];
       const WINDOWS_AT = [['y', 139, 49, 243], ['y', 139, BED_WIN[0], BED_WIN[1]], ['y', 0, 298, 486], ['x', 298, 0, 90]];
@@ -1669,7 +1683,7 @@ details[open] summary { margin-bottom: 8px; }
       T3.blobMats = {};
       for (const [x1, y1, x2, y2] of COUNTER){
         const b = new THREE.Mesh(new THREE.PlaneGeometry((x2 - x1)/75, (y2 - y1)/75), blobMat(0.45));
-        b.rotation.x = -Math.PI/2; b.position.set((x1 + x2)/200, 0.004, (y1 + y2)/200); b.renderOrder = 1; G.add(b);
+        b.rotation.x = -Math.PI/2; b.position.set((x1 + x2)/200, 0.004, (y1 + y2)/200); b.renderOrder = 1; b.userData.noPT = true; G.add(b);
       }
     }
 
@@ -1785,7 +1799,7 @@ details[open] summary { margin-bottom: 8px; }
       if (!isOnTop(p)){
         const solid = ['box', 'couch', 'wardrobe', 'bed', 'rounded', 'drawers'].includes(shapeOf(p));
         const b = new THREE.Mesh(new THREE.PlaneGeometry(p.w/75, p.h/75), blobMat(solid ? 0.5 : 0.28));
-        b.rotation.x = -Math.PI/2; b.position.y = 0.004; b.renderOrder = 1; g.add(b);
+        b.rotation.x = -Math.PI/2; b.position.y = 0.004; b.renderOrder = 1; b.userData.noPT = true; g.add(b);
       }
       const m = mat(colorOf(p));
       if (status(p).level === 'bad'){ m.emissive = new THREE.Color(0xcc2222); m.emissiveIntensity = 0.35; }
@@ -1924,6 +1938,7 @@ details[open] summary { margin-bottom: 8px; }
     scene.add(G);
     T3.group = G;
     applyEnvironment();
+    if (T3.pt) ptMarkDirty(300);
   }
 
   // Light oak planks, 20 cm wide, drawn once on a canvas (one tile = 2 × 2 m)
@@ -2109,6 +2124,9 @@ details[open] summary { margin-bottom: 8px; }
       l.color = lin(W.skyCol).lerp(lin('#ffffff'), 0.5);
     });
     updateEnvMap(day, up, W, bg);
+    // Remember the light for the beautified picture
+    T3.envInfo = { day, W, bg, lampsOn };
+    if (T3.pt) T3.pt.envDirty = true;
   }
   $('timeRange').value = env.min; $('dayRange').value = env.day;
   $('timeRange').addEventListener('input', e => { env.min = +e.target.value; applyEnvironment(); });
@@ -2160,6 +2178,158 @@ details[open] summary { margin-bottom: 8px; }
     if (view === 'walk'){ view = 'orbit'; applyView(); } else applyView(true);
   };
   $('v3low').addEventListener('change', e => { lowWalls = e.target.checked; rebuild3D(); });
+
+  // ---------- Beautify: path-traced picture while you stand still ----------
+  // Uses three-gpu-pathtracer with its own (newer) three.js, loaded only when switched on. The current
+  // room is copied into it as a glTF file; the sun, the sky and the lamps are recreated there, and the
+  // light bounces, shadows and reflections are then calculated for real. Moving shows the normal view.
+  const PT_LIBS = {
+    three:'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js',
+    jsm:'https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/',
+    bvh:'https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.6/build/index.module.js',
+    tracer:'https://cdn.jsdelivr.net/npm/three-gpu-pathtracer@0.0.23/build/index.module.js',
+    exporter:'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js',
+  };
+  let ptLoading = false, ptExposure = 1;
+  async function ptLoadLibs(){
+    if (window.__ptLibs) return window.__ptLibs;
+    if (!document.querySelector('script[type="importmap"]')){
+      const im = document.createElement('script'); im.type = 'importmap';
+      im.textContent = JSON.stringify({ imports:{ 'three':PT_LIBS.three, 'three/examples/jsm/':PT_LIBS.jsm, 'three-mesh-bvh':PT_LIBS.bvh } });
+      document.head.appendChild(im);
+    }
+    if (!THREE.GLTFExporter) await loadScript(PT_LIBS.exporter);
+    const [M3, PT, GL] = await Promise.all([import('three'), import(PT_LIBS.tracer), import('three/examples/jsm/loaders/GLTFLoader.js')]);
+    return window.__ptLibs = { M3, PT, GL };
+  }
+  function ptBadge(text){ $('ptBadge').hidden = !text; if (text) $('ptText').textContent = text; }
+  async function ptEnable(){
+    if (!T3 || T3.pt || ptLoading) return;
+    ptLoading = true; ptBadge('Loading Beautify…');
+    let libs;
+    try { libs = await ptLoadLibs(); }
+    catch (err){ ptLoading = false; $('v3pt').checked = false; ptBadge(''); toast('Beautify could not load. Check your internet connection and try again.'); return; }
+    ptLoading = false;
+    if (!$('v3pt').checked || !T3) { ptBadge(''); return; }
+    const { M3, PT } = libs;
+    const canvas = document.createElement('canvas'); canvas.className = 'ptcanvas';
+    const main = T3.renderer.domElement; main.parentNode.insertBefore(canvas, main.nextSibling);
+    const renderer = new M3.WebGLRenderer({ canvas, antialias:false });
+    renderer.setPixelRatio(1);
+    renderer.toneMapping = M3.ACESFilmicToneMapping; renderer.toneMappingExposure = ptExposure;
+    const tracer = new PT.WebGLPathTracer(renderer);
+    tracer.tiles.set(2, 2); tracer.minSamples = 3; tracer.renderDelay = 0; tracer.fadeDuration = 0;
+    tracer.rasterizeScene = false; tracer.bounces = 6; tracer.filteredGlossyFactor = 0.5; tracer.renderScale = 0.75;
+    T3.pt = { M3, renderer, tracer, canvas, scene:new M3.Scene(), camera:new M3.PerspectiveCamera(), root:null, lights:[], glow:[],
+      ready:false, building:false, dirtyAt:performance.now(), envDirty:true, camKey:'', still:0, camDirty:true };
+    ptResize();
+    ptBadge('Preparing the room…');
+  }
+  function ptDisable(){
+    const P = T3 && T3.pt; if (!P) return;
+    T3.pt = null;
+    try { P.tracer.dispose && P.tracer.dispose(); P.renderer.dispose(); P.renderer.forceContextLoss(); } catch {}
+    P.canvas.remove(); ptBadge('');
+  }
+  function ptMarkDirty(delay){ if (T3.pt){ T3.pt.dirtyAt = performance.now() + delay; T3.pt.ready = false; T3.pt.canvas.style.opacity = '0'; } }
+  function ptResize(){
+    const P = T3.pt; if (!P) return;
+    const s = T3.renderer.getSize(new THREE.Vector2());
+    P.renderer.setSize(s.x, s.y, false); P.camKey = '';
+  }
+  // Copy the room (without the fake contact shadows; the path tracer makes real ones) into the new engine
+  function ptRebuild(){
+    const P = T3.pt; P.building = true; P.ready = false; P.canvas.style.opacity = '0'; P.buildStarted = performance.now();
+    ptBadge('Preparing the room…');
+    const hidden = [];
+    T3.group.traverse(o => { if (o.userData.noPT && o.visible){ o.visible = false; hidden.push(o); } });
+    T3.group.updateMatrixWorld(true);
+    new THREE.GLTFExporter().parse(T3.group, result => {
+      hidden.forEach(o => o.visible = true);
+      new window.__ptLibs.GL.GLTFLoader().parse(result, '', gltf => {
+        if (T3.pt !== P) return;
+        if (P.root) P.scene.remove(P.root);
+        P.root = gltf.scene; P.scene.add(P.root);
+        P.glow = [];
+        P.root.traverse(o => { if (o.material && o.material.name === 'lampglow') P.glow.push(o.material); });
+        try {
+          ptApplyLight(false);
+          ptSyncCamera();
+          P.tracer.setScene(P.scene, P.camera);
+        } catch (err){ console.error(err); P.building = false; P.dirtyAt = Infinity; ptBadge('Beautify could not prepare the room.'); return; }
+        // If something changed while preparing (e.g. a door was opened), prepare again
+        P.building = false; P.ready = P.dirtyAt <= P.buildStarted; P.camKey = ''; P.envDirty = false;
+      }, () => { P.building = false; ptBadge('Beautify could not prepare the room.'); });
+    }, { binary:true, onlyVisible:true, maxTextureSize:1024 });
+  }
+  // Sun, sky and lamps for the path tracer (newer three.js counts light without the old factor π)
+  function ptApplyLight(update){
+    const P = T3.pt, M3 = P.M3, E = T3.envInfo; if (!E) return;
+    const col = c => new M3.Color(c.r, c.g, c.b);
+    P.lights.forEach(l => { P.scene.remove(l); if (l.target) P.scene.remove(l.target); }); P.lights = [];
+    if (T3.sun.intensity > 0.001){
+      const s = new M3.DirectionalLight(col(T3.sun.color), T3.sun.intensity*Math.PI);
+      s.position.set(T3.sun.position.x, T3.sun.position.y, T3.sun.position.z); s.target.position.set(1.4, 0, 2.7);
+      P.scene.add(s, s.target); P.lights.push(s);
+    }
+    for (const l of T3.lamps){
+      if (l.intensity < 0.001) continue;
+      const L = l.isSpotLight ? new M3.SpotLight(col(l.color), l.intensity*Math.PI*1.5, 0, l.angle, l.penumbra, 2) : new M3.PointLight(col(l.color), l.intensity*Math.PI*1.5, 0, 2);
+      L.position.set(l.position.x, l.position.y, l.position.z);
+      if (l.isSpotLight){ L.target.position.set(l.target.position.x, l.target.position.y, l.target.position.z); P.scene.add(L.target); }
+      P.scene.add(L); P.lights.push(L);
+    }
+    // The glowing lamp shades
+    P.glow.forEach(m => { m.emissive = new M3.Color(1, 0.8, 0.55); m.emissiveIntensity = 6*E.lampsOn; });
+    // Sky: a gradient from the ground through the horizon to the zenith, matching the time and weather
+    const w = 128, h = 64, data = new Float32Array(w*h*4);
+    const top = lin(mix('#0b1220', E.W.skyCol, E.day)), hor = lin(E.bg), ground = lin(mix('#0b0b0b', '#8f8a80', E.day));
+    const k = ({ sunny:1.0, cloudy:1.5, rainy:0.7 })[env.wx] * (0.03 + E.day), c = new THREE.Color();
+    for (let y = 0; y < h; y++){
+      const el = ((y + 0.5)/h - 0.5)*Math.PI, sEl = Math.sin(el);
+      if (sEl >= 0) c.copy(hor).lerp(top, Math.min(1, sEl*1.5)); else c.copy(hor).lerp(ground, Math.min(1, -sEl*4));
+      for (let x = 0; x < w; x++){ const i = (y*w + x)*4; data[i] = c.r*k; data[i+1] = c.g*k; data[i+2] = c.b*k; data[i+3] = 1; }
+    }
+    const tex = new M3.DataTexture(data, w, h, M3.RGBAFormat, M3.FloatType);
+    tex.mapping = M3.EquirectangularReflectionMapping; tex.needsUpdate = true;
+    if (P.scene.environment) P.scene.environment.dispose();
+    P.scene.environment = tex; P.scene.background = tex;
+    if (update){ P.tracer.updateLights(); P.tracer.updateEnvironment(); P.tracer.updateMaterials(); }
+  }
+  function ptSyncCamera(){
+    const P = T3.pt, c = T3.camera;
+    P.camera.position.set(c.position.x, c.position.y, c.position.z);
+    P.camera.quaternion.set(c.quaternion.x, c.quaternion.y, c.quaternion.z, c.quaternion.w);
+    Object.assign(P.camera, { fov:c.fov, aspect:c.aspect, near:c.near, far:c.far });
+    P.camera.updateProjectionMatrix(); P.camera.updateMatrixWorld();
+  }
+  // Every frame: rebuild after changes, hide while the camera moves, and refine while it stands still
+  function ptTick(now){
+    const P = T3.pt;
+    if (!P.ready){
+      if (!P.building && now >= P.dirtyAt){
+        P.building = true;
+        setTimeout(() => {
+          if (T3.pt !== P) return;
+          try { ptRebuild(); } catch (err){ console.error(err); P.building = false; P.dirtyAt = Infinity; ptBadge('Beautify could not prepare the room.'); }
+        }, 0);
+      }
+      return;
+    }
+    const c = T3.camera;
+    c.updateMatrixWorld();
+    const key = c.matrixWorld.elements.map(v => v.toFixed(4)).join(',') + c.fov.toFixed(2) + c.aspect.toFixed(3);
+    if (key !== P.camKey){ P.camKey = key; P.still = now; P.camDirty = true; P.canvas.style.opacity = '0'; ptBadge('Stand still to beautify'); return; }
+    if (now - P.still < 350) return;
+    if (P.envDirty){ P.envDirty = false; ptApplyLight(true); }
+    if (P.camDirty){ P.camDirty = false; ptSyncCamera(); P.tracer.updateCamera(); }
+    P.tracer.renderSample();
+    const n = Math.floor(P.tracer.samples);
+    if (n >= 3) P.canvas.style.opacity = '1';
+    ptBadge(n < 3 ? 'Beautifying…' : `Beautified · ${n} passes` + (n < 60 ? ' (getting sharper)' : ''));
+  }
+  $('v3pt').addEventListener('change', e => { if (e.target.checked) ptEnable(); else ptDisable(); });
+  $('ptExp').addEventListener('input', e => { ptExposure = Math.pow(2, +e.target.value); if (T3 && T3.pt) T3.pt.renderer.toneMappingExposure = ptExposure; });
   $('v3reset').onclick = resetCamera;
 
   function canStand(x, z){
@@ -2251,6 +2421,7 @@ details[open] summary { margin-bottom: 8px; }
         }
       });
       T3.renderer.render(T3.scene, T3.camera);
+      if (T3.pt) ptTick(t);
       T3.raf = requestAnimationFrame(tick);
     };
     T3.raf = requestAnimationFrame(tick);
