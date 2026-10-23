@@ -2643,11 +2643,19 @@ details[open] summary { margin-bottom: 8px; }
     const m = (W.a + W.b)/200, f = W.f/100 + 0.45, cy = 1.35;
     const c = W.along === 'x' ? new THREE.Vector3(m, cy, f) : new THREE.Vector3(f, cy, m);
     const cam = T3.camera.position, dx = cam.x - c.x, dz = cam.z - c.z, len = Math.hypot(dx, dz) || 1;
-    const right = new THREE.Vector3(dz/len, 0, -dx/len), up = new THREE.Vector3(0, 1, 0), hw = 0.30, hh = 0.076;
-    const corners = [[-1, 1], [1, 1], [1, -1], [-1, -1]].map(([sx, sy]) => c.clone().addScaledVector(right, sx*hw).addScaledVector(up, sy*hh).project(T3.camera));
+    const right = new THREE.Vector3(dz/len, 0, -dx/len), up = new THREE.Vector3(0, 1, 0), sz = T3.renderer.getSize(new THREE.Vector2());
+    const project = k => [[-1, 1], [1, 1], [1, -1], [-1, -1]].map(([sx, sy]) => c.clone().addScaledVector(right, sx*0.30*k).addScaledVector(up, sy*0.076*k).project(T3.camera));
+    let corners = project(1);
     if (corners.some(v => v.z > 1 || v.z < -1)){ el.style.visibility = 'hidden'; return; }
-    const sz = T3.renderer.getSize(new THREE.Vector2());
-    const dst = corners.map(v => [(v.x + 1)/2*sz.x, (1 - v.y)/2*sz.y]);
+    // From far away the pane grows (around its centre) so it is never narrower than 240 px on screen
+    const px = v => [(v.x + 1)/2*sz.x, (1 - v.y)/2*sz.y];
+    const mid = (a, b) => [(px(a)[0] + px(b)[0])/2, (px(a)[1] + px(b)[1])/2];
+    const [l, r] = [mid(corners[0], corners[3]), mid(corners[1], corners[2])], onScreen = Math.hypot(r[0] - l[0], r[1] - l[1]);
+    if (onScreen < 240){
+      corners = project(240/Math.max(onScreen, 1));
+      if (corners.some(v => v.z > 1 || v.z < -1)){ el.style.visibility = 'hidden'; return; }
+    }
+    const dst = corners.map(px);
     el.style.visibility = 'visible';
     el.style.transform = homography([[0, 0], [300, 0], [300, 76], [0, 76]], dst);
   }
