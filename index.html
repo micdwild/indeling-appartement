@@ -224,6 +224,7 @@ details[open] summary { margin-bottom: 8px; }
 #hangPanel { min-width: 0; padding: 6px 8px; transform: translate(-50%, calc(-100% - 10px)); }
 /* The TV's controls float just above the TV */
 #tvPanel { transform: translate(-50%, calc(-100% - 12px)); }
+#curPanel { min-width: 0; transform: translate(-50%, 12px); }
 #hangPanel .head { font-size: 13px; gap: 10px; }
 .tvpanel .head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .tvpanel .head span { flex: 1; }
@@ -380,6 +381,10 @@ details[open] summary { margin-bottom: 8px; }
       </div>
       <div class="stage3d" id="stage3d">
         <p class="stage-msg" id="stageMsg">Loading 3D…</p>
+        <div class="tvpanel" id="curPanel" hidden>
+          <div class="head"><span id="curName">Curtains</span><button class="link" id="curClose" aria-label="Close">✕</button></div>
+          <label class="fov" for="curOpen">Closed<input id="curOpen" type="range" min="0" max="100" step="1"><span style="color:var(--muted)">Open</span></label>
+        </div>
         <div class="tvpanel" id="hangPanel" hidden>
           <div class="head"><span id="hangName">Picture</span><button class="danger" id="hangRemove">Take down</button><button class="link" id="hangClose" aria-label="Close">✕</button></div>
         </div>
@@ -424,6 +429,14 @@ details[open] summary { margin-bottom: 8px; }
         <h2>Wall pictures</h2>
         <ul class="hrows" id="picList"></ul>
         <p class="empty" style="font-size:12.5px">Click <b>Hang</b>, then click a wall in the 3D view: the picture's middle goes where you click. Drag a hung picture to move it along the wall; click it to take it down.</p>
+      </div>
+      <div class="card">
+        <h2>Curtains</h2>
+        <ul class="hrows">
+          <li class="hrow"><input type="color" id="curColor" aria-label="Curtain colour"><label for="curColor">Fabric colour</label><input class="hex" id="curHex" maxlength="7" spellcheck="false" aria-label="Curtain colour code" style="grid-column:3 / 5"></li>
+        </ul>
+        <label class="switch" style="align-self:flex-start"><input type="checkbox" id="curOn" role="switch"><span>Show curtains</span><span class="track" aria-hidden="true"></span></label>
+        <p class="empty" style="font-size:12.5px">The rails run along the ceiling over the full length of the window walls. Click a curtain in the 3D view to open or close it.</p>
       </div>
       <div class="card">
         <h2>You</h2>
@@ -1275,7 +1288,7 @@ details[open] summary { margin-bottom: 8px; }
   });
   $('copyCode').onclick = () => {
     // The code carries the furniture plus the 3D settings (heights, colours, kitchen, frames)
-    const code = JSON.stringify({ pieces, settings3d:{ room:s3.room, h:s3.h, c:s3.c, frame:s3.frame, fov:s3.fov, hangings:s3.hangings } });
+    const code = JSON.stringify({ pieces, settings3d:{ room:s3.room, h:s3.h, c:s3.c, frame:s3.frame, fov:s3.fov, hangings:s3.hangings, curtains:s3.curtains } });
     $('codeBox').value = code;
     const done = () => toast('Layout code copied');
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(code).then(done, () => { $('codeBox').select(); toast('Select the code above and copy it'); });
@@ -1292,6 +1305,7 @@ details[open] summary { margin-bottom: 8px; }
       if (/^#[0-9a-f]{6}$/i.test(s.frame || '')) s3.frame = s.frame;
       if (s.fov >= 50 && s.fov <= 120) s3.fov = s.fov;
       if (Array.isArray(s.hangings)) s3.hangings = s.hangings;
+      if (s.curtains) s3.curtains = { on:true, color:'#e8e2d6', open:{}, ...s.curtains };
       save3(); render3DPanel(); rebuild3D();
     }
     commit(); toast(s ? 'Layout and 3D settings loaded' : 'Layout loaded');
@@ -1308,7 +1322,8 @@ details[open] summary { margin-bottom: 8px; }
     clearTimeout(resetArmed); resetArmed = 0; $('resetBtn').textContent = 'Reset to default layout';
     remember(); pieces = clone(EXAMPLE); selId = null;
     const d = clone(DEFAULTS_3D);
-    Object.assign(s3, { room:{ ...ROOM_H, ...(d.room || {}) }, h:d.h || {}, c:d.c || {}, frame:d.frame || '#fafaf8', fov:d.fov || 90, hangings:d.hangings || [] });
+    Object.assign(s3, { room:{ ...ROOM_H, ...(d.room || {}) }, h:d.h || {}, c:d.c || {}, frame:d.frame || '#fafaf8', fov:d.fov || 90, hangings:d.hangings || [], curtains:{ on:true, color:'#e8e2d6', open:{}, ...(d.curtains || {}) } });
+    renderCurtainCard();
     save3(); render3DPanel(); renderPicList(); rebuild3D();
     commit(); toast('Default layout and 3D settings restored');
   };
@@ -1330,7 +1345,7 @@ details[open] summary { margin-bottom: 8px; }
   const ROOM_H = { ceiling:260, windowTop:200, door:200, counter:90,
     fridgeW:60, fridgeTop:145, ovenH:45, wallBottom:145, wallTop:230, wallDepth:35, person:182, bulkBottom:220 };
   const DEFAULT_H = { couch:85, coffee:45, table:75, cupboard:85, high:180, wardrobe:200 };
-  const s3 = (() => { const v = ls.get(H3_KEY) || clone(DEFAULTS_3D); if (v.room && v.room.door === 210) v.room.door = 200; return { room:{ ...ROOM_H, ...(v.room || {}) }, h:v.h || {}, c:v.c || {}, s:v.s || {}, frame:/^#[0-9a-f]{6}$/i.test(v.frame || '') && v.frame !== '#3a3d40' ? v.frame : '#fafaf8', fov:(v.fov >= 50 && v.fov <= 120) ? v.fov : 90, hangings:Array.isArray(v.hangings) ? v.hangings : [] }; })();
+  const s3 = (() => { const v = ls.get(H3_KEY) || clone(DEFAULTS_3D); if (v.room && v.room.door === 210) v.room.door = 200; return { room:{ ...ROOM_H, ...(v.room || {}) }, h:v.h || {}, c:v.c || {}, s:v.s || {}, frame:/^#[0-9a-f]{6}$/i.test(v.frame || '') && v.frame !== '#3a3d40' ? v.frame : '#fafaf8', fov:(v.fov >= 50 && v.fov <= 120) ? v.fov : 90, hangings:Array.isArray(v.hangings) ? v.hangings : [], curtains:{ on:true, color:'#e8e2d6', open:{}, ...(v.curtains || {}) } }; })();
   // Horizontal view angle (what the slider shows) converted to the camera's vertical angle
   const walkFov = () => 2 * Math.atan(Math.tan(s3.fov * Math.PI/360) / (T3 ? T3.camera.aspect : 1.5)) * 180/Math.PI;
   const colorOf = p => { const c = s3.c[p.id] || cssVar('--f' + p.color); return /^#[0-9a-f]{6}$/i.test(c) ? c : '#999999'; };
@@ -1594,6 +1609,9 @@ details[open] summary { margin-bottom: 8px; }
       // Clicking a TV opens its panel (size and picture)
       // Hanging a picture: click a wall
       if (hangPic){ hangAt(hit); return; }
+      // Clicking a curtain opens its open/close slider
+      const cw = curtainAt(hit);
+      if (cw){ openCurPanel(cw); return; }
       // Clicking a hung picture opens its panel
       const hung = hangAt.find(hit);
       if (hung){ openHangPanel(hung); return; }
@@ -1643,6 +1661,7 @@ details[open] summary { margin-bottom: 8px; }
       const hit = firstHit(e);
       renderer.domElement.style.cursor = hangPic ? (hit && hit.object.userData.wall ? 'copy' : 'not-allowed')
         : hangAt.find(hit) ? 'grab'
+        : curtainAt(hit) ? 'pointer'
         : doorAt(hit) >= 0 || windowAt(hit) >= 0 || seatAt(hit) ? 'pointer'
         : hit && T3.floors.includes(hit.object) ? 'crosshair' : '';
     });
@@ -2355,6 +2374,7 @@ details[open] summary { margin-bottom: 8px; }
       G.add(g);
     }
     ROUND = 0;
+    buildCurtains(G, wallH, mat);
     // Pictures on the walls
     for (const hg of s3.hangings){
       const P = PICTURES[hg.pic]; if (!P || hg.y > wallH + 1) continue;
@@ -2551,6 +2571,85 @@ details[open] summary { margin-bottom: 8px; }
     if (hangPic){ hangPic = null; hangMoving = null; renderPicList(); }
   });
   renderPicList();
+
+  // ---------- Curtains ----------
+  // Rails on the ceiling along the full length of the window walls (inner face, room on the + side).
+  // Walls longer than 2 m get two curtains that meet in the middle; shorter ones a single curtain that
+  // gathers at the end away from the window.
+  const CURTAIN_WALLS = [
+    { id:'bed',  name:'Bedroom window wall',              along:'x', a:BEDROOM[0][0], b:BEDROOM[1][0], f:139 },
+    { id:'livL', name:'Living room wall (194 cm window)',  along:'x', a:0, b:298, f:139 },
+    { id:'step', name:'Corner window wall',               along:'z', a:0, b:139, f:298, gather:'b' },
+    { id:'top',  name:'Living room wall (188 cm window)',  along:'x', a:298, b:624, f:0 },
+  ];
+  const curOpen = id => s3.curtains.open[id] ?? 1;
+  function buildCurtains(G, wallH, mat){
+    const C = s3.room.ceiling, railY = C - 4, off = 10;
+    const railM = mat('#e9e9e6', { roughness:0.4, metalness:0.2 });
+    const fabric = mat(s3.curtains.color, { roughness:0.92, side:THREE.DoubleSide });
+    const showCurtains = s3.curtains.on && wallH >= C;
+    for (const W of CURTAIN_WALLS){
+      const L = W.b - W.a;
+      // Rail (always there): a thin bar just under the ceiling
+      const rail = new THREE.Mesh(new THREE.BoxGeometry((W.along === 'x' ? L : 2.5)/100, 2.5/100, (W.along === 'x' ? 2.5 : L)/100), railM);
+      rail.position.set((W.along === 'x' ? (W.a + W.b)/2 : W.f + off)/100, railY/100, (W.along === 'x' ? W.f + off : (W.a + W.b)/2)/100);
+      if (wallH >= C) G.add(rail);
+      if (!showCurtains) continue;
+      const open = curOpen(W.id), two = L > 200;
+      const full = two ? L/2 + 3 : L, width = Math.max(14, full*(1 - 0.86*open));
+      const pleats = Math.max(4, Math.round(full/13)), amp = 1.5 + 5*open, hgt = railY - 2 - 1;
+      const panel = (from, to) => {
+        const wdt = to - from, geo = new THREE.PlaneGeometry(wdt/100, hgt/100, pleats*6, 1), pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++){ const u = (pos.getX(i)*100 + wdt/2)/wdt; pos.setZ(i, amp/100*Math.sin(u*pleats*Math.PI*2)); }
+        geo.computeVertexNormals();
+        const mesh = new THREE.Mesh(geo, fabric);
+        const mid = (from + to)/2;
+        if (W.along === 'x') mesh.position.set(mid/100, (1 + hgt/2)/100, (W.f + off - 1)/100);
+        else { mesh.rotation.y = Math.PI/2; mesh.position.set((W.f + off - 1)/100, (1 + hgt/2)/100, mid/100); }
+        mesh.castShadow = mesh.receiveShadow = true; mesh.userData.curtain = W.id; G.add(mesh);
+      };
+      if (two){ panel(W.a, W.a + width); panel(W.b - width, W.b); }
+      else if (W.gather === 'b') panel(W.b - width, W.b); else panel(W.a, W.a + width);
+    }
+  }
+  function curtainAt(hit){ for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.curtain) return CURTAIN_WALLS.find(w => w.id === o.userData.curtain); return null; }
+  let curSel = null, curRebuild = 0;
+  function openCurPanel(W){
+    curSel = W.id; $('curName').textContent = W.name;
+    $('curOpen').value = Math.round(curOpen(W.id)*100);
+    $('curPanel').hidden = false; placeCurPanel();
+  }
+  // Float the slider just under the rail, in the middle of the wall
+  function placeCurPanel(){
+    const W = CURTAIN_WALLS.find(w => w.id === curSel), el = $('curPanel'); if (!W || !T3){ el.hidden = true; return; }
+    const m = (W.a + W.b)/2, y = s3.room.ceiling - 25;
+    const v = (W.along === 'x' ? new THREE.Vector3(m/100, y/100, (W.f + 12)/100) : new THREE.Vector3((W.f + 12)/100, y/100, m/100)).project(T3.camera);
+    const sz = T3.renderer.getSize(new THREE.Vector2());
+    el.style.visibility = v.z > 1 ? 'hidden' : 'visible';
+    el.style.left = Math.max(140, Math.min(sz.x - 140, (v.x + 1)/2*sz.x)) + 'px';
+    el.style.top = Math.max(10, Math.min(sz.y - 90, (1 - v.y)/2*sz.y)) + 'px';
+  }
+  $('curOpen').addEventListener('input', e => {
+    if (!curSel) return;
+    s3.curtains.open[curSel] = +e.target.value/100; save3();
+    cancelAnimationFrame(curRebuild); curRebuild = requestAnimationFrame(() => rebuild3D());
+  });
+  $('curClose').onclick = () => { $('curPanel').hidden = true; curSel = null; };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('curPanel').hidden){ $('curPanel').hidden = true; curSel = null; } });
+  function renderCurtainCard(){
+    $('curOn').checked = s3.curtains.on;
+    $('curColor').value = s3.curtains.color;
+    if (document.activeElement !== $('curHex')) $('curHex').value = s3.curtains.color;
+  }
+  $('curOn').addEventListener('change', e => { s3.curtains.on = e.target.checked; save3(); rebuild3D(); });
+  $('curColor').addEventListener('input', e => { s3.curtains.color = e.target.value; $('curHex').value = e.target.value; save3(); rebuild3D(); });
+  $('curHex').addEventListener('input', e => {
+    let v = e.target.value.trim().replace(/^#?/, '#').toLowerCase();
+    if (/^#[0-9a-f]{3}$/.test(v)) v = '#' + v.slice(1).split('').map(ch => ch + ch).join('');
+    if (!/^#[0-9a-f]{6}$/.test(v)) return;
+    s3.curtains.color = v; $('curColor').value = v; save3(); rebuild3D();
+  });
+  renderCurtainCard();
 
   // ---------- TV panel: size and picture ----------
   let tvSel = null;
@@ -3086,6 +3185,7 @@ details[open] summary { margin-bottom: 8px; }
       cutTrees();
       if (!$('hangPanel').hidden) placeHangPanel();
       if (!$('tvPanel').hidden) placeTvPanel();
+      if (!$('curPanel').hidden) placeCurPanel();
       if (env.play){
         env.min = (env.min + dt*60) % 1440;
         $('timeRange').value = Math.round(env.min/5)*5;
