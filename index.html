@@ -635,7 +635,7 @@ details[open] summary { margin-bottom: 8px; }
                icon:'<path d="M11 3v18M11 13h11v8"/>' },
     couch:   { label:'Couch', w:200, h:90, H:85, note:'Seat, backrest and armrests. In the plan the backrest is on the top long side; rotate to turn it.',
                icon:'<path d="M5 10v10h22V10M5 14h22M9 10V6h14v4"/>' },
-    drawers: { label:'Drawers', menu:'Drawer unit (3 clear drawers)', w:50, h:40, H:100, note:'Drawer unit with 3 see-through drawers, each with a knob. In the plan the front is the bottom side (marked); rotate to turn it.',
+    drawers: { label:'Drawers', menu:'Drawer unit (3 drawers)', w:40, h:50, H:100, note:'Drawer unit with 3 drawers, each with a knob. Width is the front with the drawers; in the plan the front is the bottom side (marked), rotate to turn it.',
                icon:'<rect x="9" y="2" width="14" height="20" rx="1"/><path d="M9 8.7h14M9 15.3h14"/><circle cx="16" cy="5.3" r="0.9"/><circle cx="16" cy="12" r="0.9"/><circle cx="16" cy="18.6" r="0.9"/>' },
     wardrobe:{ label:'Wardrobe', menu:'Clothes cupboard (3 doors, mirror)', w:120, h:55, H:200, note:'Clothes cupboard with 3 doors; the middle one is a mirror. In the plan the doors are on the bottom long side (marked); rotate to turn it.',
                icon:'<rect x="6" y="2" width="20" height="20" rx="1"/><path d="M12.7 2v20M19.3 2v20M11 12h0M21 12h0"/><path d="M14.5 6l3 3M14.5 10l3 3"/>' },
@@ -1881,18 +1881,14 @@ details[open] summary { margin-bottom: 8px; }
         mesh.castShadow = mesh.receiveShadow = true;
         g.add(mesh);
       } else if (kind === 'drawers'){
-        // Open frame with 3 see-through drawers, each with a knob, on the front (local +z)
-        part(g, m, 0, H - 1.5, 0, w, 1.5, d); part(g, m, 0, 0, 0, w, 3, d);
-        for (const sx of [-1, 1]) part(g, m, sx*(w/2 - 0.75), 0, 0, 1.5, H, d);
-        part(g, m, 0, 0, -d/2 + 0.75, w, H, 1.5);
-        const clearM = mat('#eef6f8', { transparent:true, opacity:0.32, roughness:0.15, side:THREE.DoubleSide });
-        const trayM = mat('#dfe8ea', { transparent:true, opacity:0.55, roughness:0.3 });
+        // Closed cabinet with 3 solid drawer fronts on the front (local +z), each with a round knob;
+        // thin dark gaps between the drawers
+        part(g, m, 0, 0, -0.75, w, H, d - 1.5);
+        part(g, mat('#2a2c2e'), 0, 3, d/2 - 1.6, w - 2, H - 4.5, 0.3, false);
         const knobM = mat('#d4d8db', { roughness:0.3, metalness:0.6 }), slot = (H - 4.5)/3;
         for (let i = 0; i < 3; i++){
           const y0 = 3 + i*slot;
-          part(g, clearM, 0, y0 + 0.4, d/2 - 1, w - 3.4, slot - 0.8, 1.2, false);         // front
-          part(g, trayM, 0, y0 + 0.4, 0, w - 3.4, 0.5, d - 4, false);                      // bottom
-          for (const sx of [-1, 1]) part(g, clearM, sx*(w/2 - 2.2), y0 + 0.4, 0, 0.5, slot*0.7, d - 4, false); // sides
+          part(g, m, 0, y0 + 0.3, d/2 - 0.75, w - 1.2, slot - 0.6, 1.5);                   // drawer front
           const knob = new THREE.Mesh(new THREE.SphereGeometry(0.014, 16, 12), knobM);
           knob.position.set(0, (y0 + slot/2)/100, (d/2 + 1)/100); g.add(knob);
         }
