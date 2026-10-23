@@ -660,7 +660,7 @@ details[open] summary { margin-bottom: 8px; }
 
   // Chairs may slide under a table; the table is drawn on top, slightly see-through
   // Each piece remembers its kind in `type`; older pieces without one fall back to their id
-  const isChair = p => p.type ? p.type === 'chair' : (p.kind === 'chair' || p.id.startsWith('chair'));
+  const isChair = p => p.type ? (p.type === 'chair' || p.type === 'officeChair') : (p.kind === 'chair' || p.id.startsWith('chair'));
   const isTable = p => p.type ? ['table', 'angled', 'desk'].includes(p.type) : (p.kind === 'table' || p.id === 'table');
 
   // Kinds of furniture: default size, default 3D height, a small icon and what it looks like in 3D
@@ -675,6 +675,8 @@ details[open] summary { margin-bottom: 8px; }
                icon:'<path d="M3 8h26M7 8v13M25 8v13"/>' },
     desk:    { label:'Desk', menu:'Standing desk', w:140, h:70, H:75, note:'Standing desk: a top on two columns with wide feet at the short ends. Chairs can slide under it.',
                icon:'<path d="M3 7h26M9 7v14M23 7v14M5 21h8M19 21h8"/>' },
+    officeChair:{ label:'Office chair', w:60, h:60, H:105, note:'Swivel chair on a five-star base with wheels, simple armrests and no headrest. It is placed at the desk when added, slides under desks and tables, and turns to face them when you push it in.',
+               icon:'<path d="M10 4h12v8H10zM9 14h14M16 14v5M10 22l6-3 6 3M9 12v-3M23 12v-3"/>' },
     chair:   { label:'Chair', w:45, h:50, H:90, note:'A seat with a backrest. Slides under tables and desks.',
                icon:'<path d="M11 3v18M11 13h11v8"/>' },
     couch:   { label:'Couch', w:200, h:90, H:85, note:'Seat, backrest and armrests. In the plan the backrest is on the top long side; rotate to turn it.',
@@ -753,6 +755,10 @@ details[open] summary { margin-bottom: 8px; }
         const a = i*360/n + 15;
         return `<ellipse cx="${R*0.45}" cy="0" rx="${R*0.5}" ry="${R*0.17}" transform="rotate(${a})" style="fill:${i % 2 ? '#5f9a52' : '#4f8a46'};stroke:none;opacity:.92"></ellipse>`;
       }).join('');
+    }
+    if (isChair(p)){
+      // Backrest along the local +y side
+      return `<line x1="${-p.w/2 + 4}" y1="${p.h/2 - 3}" x2="${p.w/2 - 4}" y2="${p.h/2 - 3}" style="stroke:var(--ink);stroke-width:3;stroke-linecap:round"></line>`;
     }
     if (!isOnTop(p) && shapeOf(p) === 'drawers'){
       // Front (local bottom side) with the knob sticking out
@@ -845,7 +851,7 @@ details[open] summary { margin-bottom: 8px; }
       const cls = ['piece', p.id===selId?'sel':'', st.level==='bad'?'bad':st.level==='warn'?'warn':''].join(' ');
       const fill = FILLS[p.kind] ? 'fill:' + FILLS[p.kind] : `fill:var(--f${p.color})${isTable(p) ? ';fill-opacity:.82' : ''}`;
       g += `<g class="${cls}" data-id="${p.id}" transform="translate(${p.x} ${p.y}) rotate(${p.rot})">`+
-           `<rect x="${-p.w/2}" y="${-p.h/2}" width="${p.w}" height="${p.h}" rx="${shapeOf(p) === 'rounded' || isPlant(p) ? Math.min(p.w, p.h)/2 : 3}" style="${fill}"></rect>${itemDetail(p)}</g>`;
+           `<rect x="${-p.w/2}" y="${-p.h/2}" width="${p.w}" height="${p.h}" rx="${shapeOf(p) === 'rounded' || isPlant(p) ? Math.min(p.w, p.h)/2 : shapeOf(p) === 'officeChair' ? 12 : 3}" style="${fill}"></rect>${itemDetail(p)}</g>`;
     }
     for (const p of order){
       if (!p.placed || tucked(p) || hasTV(p) || p.kind === 'hob' || p.kind === 'sink' || isPlant(p)) continue;
@@ -1020,11 +1026,45 @@ details[open] summary { margin-bottom: 8px; }
     if (x === p.x && y === p.y) return;
     if (!drag.moved){ history.push(drag.before); drag.moved = true; }
     p.x = x; p.y = y;
-    if (isChair(p)) faceWall(p);
+    if (isChair(p) && !faceTable(p)) faceWall(p);
     render();
   });
 
   // A chair dragged next to a wall turns so its backrest (local +y side) is against that wall
+  // Turn a chair that overlaps a table or desk so its front (local -y) points at the nearest edge of it
+  function faceTable(p){
+    for (const o of pieces){
+      if (o === p || !o.placed || !isTable(o) || !overlap(poly(p, 1), poly(o, 1))) continue;
+      const a = o.rot*Math.PI/180, c = Math.cos(a), s = Math.sin(a), dx = p.x - o.x, dy = p.y - o.y;
+      const lx = dx*c + dy*s, ly = -dx*s + dy*c;
+      // Which side of the table is the chair at? Push direction is from the chair towards that edge
+      const ex = Math.abs(lx) - o.w/2, ey = Math.abs(ly) - o.h/2;
+      let fx, fy;
+      if (ex > ey){ const sx = -Math.sign(lx); fx = sx*c; fy = sx*s; }
+      else { const sy = -Math.sign(ly); fx = -sy*s; fy = sy*c; }
+      const rot = ((Math.round(Math.atan2(fx, -fy)*180/Math.PI/90)*90) % 360 + 360) % 360;
+      if (rot !== p.rot){ p.rot = rot; [p.x, p.y] = snapPos(p, p.x, p.y); }
+      return true;
+    }
+    return false;
+  }
+  // A new office chair goes to the desk: in front of the long side with the most room, partly tucked under
+  function placeAtDesk(p){
+    const desk = pieces.find(o => o.placed && shapeOf(o) === 'desk') || pieces.find(o => o.placed && isTable(o));
+    if (!desk) return false;
+    const a = desk.rot*Math.PI/180, c = Math.cos(a), s = Math.sin(a), long = desk.w >= desk.h;
+    const walls = [...edges(ROOM), ...edges(BEDROOM), ...[...COUNTER, PARTITION].flatMap(r => edges(rectPoly(r)))];
+    let best = null;
+    for (const side of [-1, 1]){
+      const nx = long ? -side*s : side*c, ny = long ? side*c : side*s, half = long ? desk.h/2 : desk.w/2;
+      const room = cast(desk.x + nx*half, desk.y + ny*half, nx, ny, walls);
+      if (!best || room > best.room) best = { nx, ny, half, room };
+    }
+    p.placed = true;
+    p.x = desk.x + best.nx*(best.half + p.h/2 - 22); p.y = desk.y + best.ny*(best.half + p.h/2 - 22);
+    p.rot = ((Math.round(Math.atan2(-best.nx, best.ny)*180/Math.PI/90)*90) % 360 + 360) % 360;
+    return true;
+  }
   function faceWall(p){
     if (tucked(p)) return;
     let best = null;
@@ -1207,9 +1247,10 @@ details[open] summary { margin-bottom: 8px; }
       const used = new Set(pieces.map(o => o.color));
       const color = [7,8,1,2,3,4,5,6].find(c => !used.has(c)) || 7;
       p = { id:'c'+Date.now(), name:typed || TYPES[addType].label, type:addType, w, h, color, x:312, y:300, rot:0, placed:false, custom:true };
-      if (addType === 'chair') p.kind = 'chair';
+      if (addType === 'chair' || addType === 'officeChair') p.kind = 'chair';
       if (TYPES[addType].pot){ s3.c[p.id] = TYPES[addType].pot; save3(); }
-      pieces.push(p); placeFree(p);
+      pieces.push(p);
+      if (!(addType === 'officeChair' && placeAtDesk(p))) placeFree(p);
       toast(p.name + ' added');
     }
     $('addName').value = '';
@@ -1492,7 +1533,7 @@ details[open] summary { margin-bottom: 8px; }
     function windowAt(hit){ for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.window !== undefined) return o.userData.window; return -1; }
     // The piece of furniture a click landed on (its id), or null
     const pieceAt = hit => { for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.piece) return o.userData.piece; return null; };
-    const seatAt = hit => { const p = byId(pieceAt(hit)); return p && ['chair', 'couch'].includes(shapeOf(p)) ? p : null; };
+    const seatAt = hit => { const p = byId(pieceAt(hit)); return p && ['chair', 'officeChair', 'couch'].includes(shapeOf(p)) ? p : null; };
     const doorAt = hit => { for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.door !== undefined) return o.userData.door; return -1; };
     let down = null;
     renderer.domElement.addEventListener('pointerdown', e => { down = { x:e.clientX, y:e.clientY }; });
@@ -2113,6 +2154,38 @@ details[open] summary { margin-bottom: 8px; }
         const top = Math.min(4, H);
         part(g, m, 0, H - top, 0, w, top, d);
         for (const sx of [-1, 1]) for (const sz of [-1, 1]) part(g, m, sx*(w/2-6), 0, sz*(d/2-6), 5, H - top, 5);
+      } else if (kind === 'officeChair'){
+        // Office chair (backrest on the local +z side): five-star base with wheels, chrome gas lift, cushioned
+        // seat and backrest in the chair's colour, simple armrests, no headrest
+        const blackM = mat('#1b1c1e', { roughness:0.45, metalness:0.25 }), chromeM = mat('#d6dadd', { roughness:0.2, metalness:0.9 });
+        const rod = (a, b, r, mm) => {
+          const t = new THREE.Mesh(new THREE.CylinderGeometry(r/100, r/100, a.distanceTo(b)/100, 12), mm);
+          t.position.copy(a.clone().add(b).multiplyScalar(0.005));
+          t.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+          t.castShadow = t.receiveShadow = true; g.add(t);
+        };
+        const V = (x, y, z) => new THREE.Vector3(x, y, z);
+        const R = Math.min(w, d)/2 - 2, seatTop = Math.min(50, H*0.48);
+        for (let i = 0; i < 5; i++){
+          const an = i/5*Math.PI*2 + Math.PI/10, ex = Math.cos(an)*R, ez = Math.sin(an)*R;
+          rod(V(0, 8, 0), V(ex, 5.5, ez), 1.6, blackM);                                 // star leg
+          const wheel = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 8), blackM);
+          wheel.position.set(ex/100, 0.026, ez/100); wheel.castShadow = true; g.add(wheel);
+        }
+        rod(V(0, 6, 0), V(0, seatTop - 9, 0), 2.6, blackM);                             // column cover
+        rod(V(0, seatTop - 14, 0), V(0, seatTop - 6, 0), 1.5, chromeM);                 // gas lift
+        const keep = ROUND; ROUND = 4;
+        part(g, m, 0, seatTop - 7, -1, Math.min(50, w - 8), 7, Math.min(48, d - 10));  // seat cushion
+        const bw = Math.min(46, w - 12), bTop = H, bLow = seatTop + 8;
+        const back = part(g, m, 0, bLow, 0, bw, bTop - bLow, 6);                         // backrest cushion
+        if (back){ back.position.z = (d/2 - 9)/100; back.rotation.x = -0.12; }
+        ROUND = keep;
+        rod(V(0, seatTop - 6, 18), V(0, bLow + 6, d/2 - 8), 2, blackM);                  // spine to the backrest
+        for (const sx of [-1, 1]){
+          const ax = sx*(Math.min(50, w - 8)/2 + 1);
+          rod(V(ax, seatTop - 5, 4), V(ax, seatTop + 17, 2), 1.3, blackM);              // armrest post
+          part(g, blackM, ax, seatTop + 17, 0, 5, 2.4, 24);                              // armrest pad
+        }
       } else if (kind === 'chair'){
         // Light chair (backrest on the local +z side):
         // - one shiny metal tube forms the back legs and an upside-down U with a flat top and rounded corners;
@@ -2895,9 +2968,9 @@ details[open] summary { margin-bottom: 8px; }
       ly = 0;
     }
     const x = p.x + lx*c - ly*s, z = p.y + lx*s + ly*c;
-    const seat = Math.min(kind === 'couch' ? 42 : 45, heightOf(p));
+    const seat = Math.min(kind === 'couch' ? 42 : kind === 'officeChair' ? 50 : 45, heightOf(p));
     walk.goal = { x, z };
-    walk.sit = { eye:seat + s3.room.person*0.43, yaw:kind === 'chair' ? -a : Math.PI - a, turning:true };
+    walk.sit = { eye:seat + s3.room.person*0.43, yaw:kind === 'couch' ? Math.PI - a : -a, turning:true };
     toast('Sitting on the ' + p.name.toLowerCase() + '. Move or click the floor to stand up.');
   }
 
