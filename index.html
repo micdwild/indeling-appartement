@@ -1387,6 +1387,9 @@ details[open] summary { margin-bottom: 8px; }
     };
     // Which door (0 = entrance, 1 = bedroom) a click landed on, or -1
     function windowAt(hit){ for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.window !== undefined) return o.userData.window; return -1; }
+    // The piece of furniture a click landed on (its id), or null
+    const pieceAt = hit => { for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.piece) return o.userData.piece; return null; };
+    const seatAt = hit => { const p = byId(pieceAt(hit)); return p && ['chair', 'couch'].includes(shapeOf(p)) ? p : null; };
     const doorAt = hit => { for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.door !== undefined) return o.userData.door; return -1; };
     let down = null;
     renderer.domElement.addEventListener('pointerdown', e => { down = { x:e.clientX, y:e.clientY }; });
@@ -1406,8 +1409,11 @@ details[open] summary { margin-bottom: 8px; }
         return;
       }
       const di = doorAt(hit);
+      // Walk mode: click a chair or the couch to sit down on it
+      if (di < 0 && windowAt(hit) < 0 && view === 'walk' && seatAt(hit)){ sitOn(seatAt(hit), hit.point); return; }
       // Walk mode: click the floor to walk there (or jump, if a wall is in the way)
       if (di < 0 && windowAt(hit) < 0 && view === 'walk' && hit && T3.floors.includes(hit.object)){
+        walk.sit = null;
         const x = hit.point.x*100, z = hit.point.z*100;
         if (!canStand(x, z)){ toast('That spot is too close to a wall or the kitchen'); return; }
         const dist = Math.hypot(x - walk.x, z - walk.z), steps = Math.ceil(dist/10);
@@ -1423,7 +1429,7 @@ details[open] summary { margin-bottom: 8px; }
     renderer.domElement.addEventListener('pointermove', e => {
       if (e.buttons) return;
       const hit = firstHit(e);
-      renderer.domElement.style.cursor = (doorAt(hit) >= 0 || windowAt(hit) >= 0) && !picking ? 'pointer'
+      renderer.domElement.style.cursor = (doorAt(hit) >= 0 || windowAt(hit) >= 0 || (view === 'walk' && seatAt(hit))) && !picking ? 'pointer'
         : (picking && view === 'orbit') || (view === 'walk' && hit && T3.floors.includes(hit.object)) ? 'crosshair' : '';
     });
   }
@@ -1749,6 +1755,7 @@ details[open] summary { margin-bottom: 8px; }
       const g = new THREE.Group();
       g.position.set(p.x/100, 0, p.y/100);
       g.rotation.y = -p.rot * Math.PI/180;
+      g.userData.piece = p.id;
       // Contact shadow on the floor under the piece: darker under solid pieces than under legged ones
       if (!isOnTop(p)){
         const solid = ['box', 'couch', 'wardrobe', 'bed', 'rounded'].includes(shapeOf(p));
@@ -2082,7 +2089,7 @@ details[open] summary { margin-bottom: 8px; }
     $('fovWrap').hidden = !walking;
     $('fovRange').value = s3.fov; $('fovOut').textContent = s3.fov + '°';
     $('hint3d').textContent = walking
-      ? 'Drag to look around. W/S or ↑/↓ to walk, A/D or ←/→ to turn. On a phone, hold the arrow buttons. Click the floor to walk there. Click a door to open or close it.'
+      ? 'Drag to look around. W/S or ↑/↓ to walk, A/D or ←/→ to turn. On a phone, hold the arrow buttons. Click the floor to walk there, or a chair or the couch to sit down. Click a door or window to open or close it.'
       : picking ? 'Click a spot on the floor to stand there. You can still drag to turn the room first.'
       : 'Drag to turn the room, scroll or pinch to zoom, right-drag or two fingers to pan. Click the door to open or close it. Move furniture in the Plan view.';
     if (!T3) return;
@@ -2110,11 +2117,38 @@ details[open] summary { margin-bottom: 8px; }
     if (!ROOMS.some(room => [[x,z],[x-15,z],[x+15,z],[x,z-15],[x,z+15]].every(pt => pointIn(pt, room)))) return false;
     return ![...COUNTER, PARTITION].some(([x1,y1,x2,y2]) => x > x1-15 && x < x2+15 && z > y1-15 && z < y2+15);
   }
+  // Sit down: walk to the seat, turn to face the way it faces, and lower the eyes to seated height
+  // (seat height + about 43% of body height: ~120 cm for 182 cm). Chairs face away from their backrest
+  // on the local +y side, the couch away from its backrest on the local -y side.
+  function sitOn(p, point){
+    const kind = shapeOf(p), a = p.rot*Math.PI/180, c = Math.cos(a), s = Math.sin(a);
+    let lx = 0, ly = 4;
+    if (kind === 'couch'){
+      const dx = point.x*100 - p.x, dz = point.z*100 - p.y;
+      lx = Math.max(-(p.w/2 - 30), Math.min(p.w/2 - 30, dx*c + dz*s));   // the spot you clicked, between the armrests
+      ly = 0;
+    }
+    const x = p.x + lx*c - ly*s, z = p.y + lx*s + ly*c;
+    const seat = Math.min(kind === 'couch' ? 42 : 45, heightOf(p));
+    walk.goal = { x, z };
+    walk.sit = { eye:seat + s3.room.person*0.43, yaw:kind === 'chair' ? -a : Math.PI - a, turning:true };
+    toast('Sitting on the ' + p.name.toLowerCase() + '. Move or click the floor to stand up.');
+  }
+
   function walkStep(dt){
     const fwd = (keys.has('w') || keys.has('arrowup') ? 1 : 0) - (keys.has('s') || keys.has('arrowdown') ? 1 : 0);
     const turn = (keys.has('a') || keys.has('arrowleft') ? 1 : 0) - (keys.has('d') || keys.has('arrowright') ? 1 : 0);
     walk.yaw += turn * 1.7 * dt;
-    if (fwd || turn) walk.goal = null;
+    if (fwd || turn){ walk.goal = null; walk.sit = null; }
+    // Turn towards the seat's direction while sitting down (shortest way round), then let you look freely
+    if (walk.sit && walk.sit.turning){
+      const diff = Math.atan2(Math.sin(walk.sit.yaw - walk.yaw), Math.cos(walk.sit.yaw - walk.yaw));
+      walk.yaw += diff * Math.min(1, dt*4);
+      if (Math.abs(diff) < 0.01) walk.sit.turning = false;
+    }
+    // Eye height eases between standing and sitting
+    const eyeTarget = walk.sit ? walk.sit.eye : s3.room.person - 11;
+    walk.eye = walk.eye === undefined ? eyeTarget : walk.eye + (eyeTarget - walk.eye)*Math.min(1, dt*4);
     if (walk.goal){
       // Glide to the clicked spot at walking pace
       const dx = walk.goal.x - walk.x, dz = walk.goal.z - walk.z, d = Math.hypot(dx, dz), step = Math.min(d, 160*dt);
@@ -2123,11 +2157,12 @@ details[open] summary { margin-bottom: 8px; }
     }
     if (fwd){
       const v = 140 * dt * fwd, nx = walk.x - Math.sin(walk.yaw) * v, nz = walk.z - Math.cos(walk.yaw) * v;
-      if (canStand(nx, nz)){ walk.x = nx; walk.z = nz; }
+      // (if you are standing somewhere tight, e.g. after getting up from a seat by a wall, you may always move)
+      if (canStand(nx, nz) || !canStand(walk.x, walk.z)){ walk.x = nx; walk.z = nz; }
       else if (canStand(nx, walk.z)) walk.x = nx;
       else if (canStand(walk.x, nz)) walk.z = nz;
     }
-    T3.camera.position.set(walk.x/100, (s3.room.person - 11)/100, walk.z/100);
+    T3.camera.position.set(walk.x/100, walk.eye/100, walk.z/100);
     T3.camera.rotation.set(walk.pitch, walk.yaw, 0);
   }
   function startLoop(){
