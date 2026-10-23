@@ -329,7 +329,7 @@ details[open] summary { margin-bottom: 8px; }
               </div>
               <p class="empty" style="font-size:12px">Left and right as seen standing in front of the sink.</p>
             </div>
-            <label for="tvIn" id="tvRow" hidden>Screen size (inches)<input id="tvIn" type="number" min="19" max="100" value="55" disabled></label>
+            <label for="tvIn" id="tvRow" hidden>Screen size (inches)<input id="tvIn" type="number" min="15" max="100" value="55" disabled></label>
             <button class="primary" type="submit" id="addBtn">Add</button>
           </form>
         </details>
@@ -690,6 +690,8 @@ details[open] summary { margin-bottom: 8px; }
                icon:'<path d="M11 16h10l-1.5 6h-7zM16 16V2M16 9l-5-6M16 7l5-5M16 12l-6-3M16 11l6-2"/>' },
     plantStand:{ label:'Plant stand', w:40, h:40, H:105, pot:'#2b2d30', note:'A round plant table with two levels (about 50 cm and 5 cm above the floor) with a trailing plant in a terracotta pot on top. Its colour is the table’s colour.',
                icon:'<path d="M8 13h16M9 21h14M11 13l-1 8M21 13l1 8M13 13l1-4h4l1 4M16 9c-2-1-3-3-3-5M16 9c2-1 3-3 3-5M13 13c-2 1-3 3-3 5"/>' },
+    monitor: { label:'Monitor', onTop:true, note:'A computer monitor on a stand. It goes on the desk (or the first piece of furniture it fits on); drag it elsewhere if needed. Click it in 3D to change its size or show a picture.',
+               icon:'<rect x="6" y="3" width="20" height="13" rx="1"/><path d="M16 16v3M11 21h10"/>' },
     tv:      { label:'TV', onTop:true, note:'Goes on the first piece of furniture it fits on. Drag it elsewhere, or use “Put it on” when it is selected.',
                icon:'<rect x="4" y="3" width="24" height="15" rx="1"/><path d="M16 18v3M11 21h10"/>' },
   };
@@ -697,11 +699,12 @@ details[open] summary { margin-bottom: 8px; }
   const canStack = (a, b) => (isChair(a) && isTable(b)) || (isTable(a) && isChair(b)) || isOnTop(a) || isOnTop(b);
 
   // ---------- Televisions ----------
-  const isTV = p => p.kind === 'tv';
+  // Screens: TVs and computer monitors (sized in inches, standing on furniture, facing the room)
+  const isTV = p => p.kind === 'tv' || p.kind === 'monitor';
   // TVs, hobs and sinks stand on top of the counter or other furniture
   // Things that can stand on top of furniture (or the counter): TV, hob, sink and plants in pots.
   // Plants may also simply stand on the floor.
-  const isOnTop = p => p.kind === 'tv' || p.kind === 'hob' || p.kind === 'sink' || p.kind === 'plant' || p.type === 'plantM' || p.type === 'plantL';
+  const isOnTop = p => p.kind === 'tv' || p.kind === 'monitor' || p.kind === 'hob' || p.kind === 'sink' || p.kind === 'plant' || p.type === 'plantM' || p.type === 'plantL';
   const isPlant = p => p.kind === 'plant' || /^plant/.test(p.type || '');
   const TV_DEPTH = 25;
 
@@ -785,7 +788,9 @@ details[open] summary { margin-bottom: 8px; }
   const tvPlacementOn = (p, o) => ({ x:o.x, y:o.y, rot:((o.rot + (o.w >= o.h ? 0 : 90)) % 360) });
   function bestTVSpot(p){
     const fits = pieces.filter(o => o !== p && tvFits(p, o) && !pieces.some(t => t !== p && isTV(t) && t.placed && tvSupport(t) === o));
-    return fits.find(o => ['box','rounded'].includes(shapeOf(o))) || fits[0] || null;
+    // Monitors prefer the desk; TVs prefer a cupboard or the sordino
+    const pref = p.kind === 'monitor' ? ['desk', 'table', 'angled'] : ['box', 'rounded'];
+    return fits.find(o => pref.includes(shapeOf(o))) || fits[0] || null;
   }
   const hasTV = o => pieces.some(t => isOnTop(t) && !isPlant(t) && t.placed && tvSupport(t) === o);
   function tvStatus(p){
@@ -824,7 +829,7 @@ details[open] summary { margin-bottom: 8px; }
   function render(){
     let g = '';
     const order = [...pieces.filter(isChair), ...pieces.filter(p => !isChair(p) && !isOnTop(p)), ...pieces.filter(isOnTop)];
-    const FILLS = { tv:'#25292d', hob:'#1d2023', sink:'#c3c9cd', plant:'#b5654a' };
+    const FILLS = { tv:'#25292d', monitor:'#25292d', hob:'#1d2023', sink:'#c3c9cd', plant:'#b5654a' };
     for (const p of order){
       if (!p.placed) continue;
       const st = status(p);
@@ -942,7 +947,7 @@ details[open] summary { margin-bottom: 8px; }
   }
   function tvControls(p){
     return `<div class="sizes">
-      <label for="inInput">Screen size<input id="inInput" type="number" min="19" max="100" step="1" value="${p.inches}"></label>
+      <label for="inInput">Screen size<input id="inInput" type="number" min="15" max="100" step="1" value="${p.inches}"></label>
       <span>inch · ${p.w} cm wide</span></div>`;
   }
   function tvPutOn(p){
@@ -1078,8 +1083,9 @@ details[open] summary { margin-bottom: 8px; }
     }
     else if (e.target.id === 'inInput'){
       const v = Math.round(+e.target.value);
-      if (!(v >= 19 && v <= 100)) return;
-      if (p.name === p.inches + '″ TV') p.name = v + '″ TV';
+      if (!(v >= 15 && v <= 100)) return;
+      const sfx = p.kind === 'monitor' ? '″ monitor' : '″ TV';
+      if (p.name === p.inches + sfx) p.name = v + sfx;
       p.inches = v; p.w = tvSize(v).w;
     }
     else {
@@ -1123,16 +1129,17 @@ details[open] summary { margin-bottom: 8px; }
     `<button type="button" data-type="${k}" aria-pressed="false"><svg viewBox="0 0 32 24" aria-hidden="true">${t.icon}</svg><span>${t.label}</span></button>`).join('');
   function setAddType(k){
     addType = k;
-    const t = TYPES[k], tv = k === 'tv', sink = k === 'sink', noDims = tv || sink;
+    const t = TYPES[k], tv = k === 'tv' || k === 'monitor', sink = k === 'sink', noDims = tv || sink;
+    if (tv) $('tvIn').value = k === 'monitor' ? 21 : 55;
     $('typeTiles').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.type === k));
     $('dimRow').hidden = noDims; $('addW').disabled = $('addL').disabled = noDims;
     $('tvRow').hidden = !tv; $('tvIn').disabled = !tv;
     $('sinkRow').hidden = !sink;
     updateAddSink();
     if (!noDims){ $('addW').value = t.w; $('addL').value = t.h; }
-    $('addName').placeholder = tv ? 'TV' : k === 'hob' ? 'Induction hob' : t.label;
+    $('addName').placeholder = k === 'monitor' ? 'Monitor' : tv ? 'TV' : k === 'hob' ? 'Induction hob' : t.label;
     $('addNote').textContent = t.note + (t.onTop ? '' : ' You can set its height and colour in the 3D view.');
-    $('addBtn').textContent = 'Add ' + (tv ? 'TV' : t.label.toLowerCase());
+    $('addBtn').textContent = 'Add ' + (k === 'tv' ? 'TV' : t.label.toLowerCase());
   }
   $('typeTiles').addEventListener('click', e => { const b = e.target.closest('[data-type]'); if (b) setAddType(b.dataset.type); });
   const addSink = { bowls:1, drainer:'right' };
@@ -1159,14 +1166,14 @@ details[open] summary { margin-bottom: 8px; }
     const typed = $('addName').value.trim();
     remember();
     let p;
-    if (addType === 'tv'){
-      const inches = Math.round(+$('tvIn').value);
-      if (!(inches >= 19 && inches <= 100)){ history.pop(); return; }
-      p = { id:'tv'+Date.now(), kind:'tv', name:typed || inches + '″ TV', inches, w:tvSize(inches).w, h:TV_DEPTH, color:8, x:312, y:300, rot:0, placed:false, custom:true };
+    if (addType === 'tv' || addType === 'monitor'){
+      const mon = addType === 'monitor', inches = Math.round(+$('tvIn').value);
+      if (!(inches >= (mon ? 15 : 19) && inches <= (mon ? 49 : 100))){ history.pop(); toast(mon ? 'Monitors go from 15 to 49 inches' : 'TVs go from 19 to 100 inches'); return; }
+      p = { id:addType + Date.now(), kind:addType, name:typed || inches + (mon ? '″ monitor' : '″ TV'), inches, w:tvSize(inches).w, h:mon ? 20 : TV_DEPTH, color:8, x:312, y:300, rot:0, placed:false, custom:true };
       pieces.push(p);
       const o = bestTVSpot(p);
       if (o){ Object.assign(p, tvPlacementOn(p, o), { placed:true }); toast(p.name + ' put on the ' + o.name.toLowerCase()); }
-      else { p.placed = true; toast('No furniture is wide enough, so the TV stands on the floor'); }
+      else { p.placed = true; toast('No furniture is wide enough, so it stands on the floor'); }
     } else if (addType === 'plantS'){
       const w = Math.round(+$('addW').value), h = Math.round(+$('addL').value);
       if (!(w >= 8 && w <= 60 && h >= 8 && h <= 60)){ history.pop(); return; }
@@ -1955,7 +1962,7 @@ details[open] summary { margin-bottom: 8px; }
       if (status(p).level === 'bad'){ m.emissive = new THREE.Color(0xcc2222); m.emissiveIntensity = 0.35; }
       const H = heightOf(p), w = p.w, d = p.h, kind = shapeOf(p);
       // A TV turns its screen towards the open room: whichever side has more space in front of it
-      if (kind === 'tv'){
+      if (kind === 'tv' || kind === 'monitor'){
         const a = p.rot*Math.PI/180, fx = Math.sin(a), fy = -Math.cos(a);
         const walls = [...edges(ROOM), ...edges(BEDROOM), ...[...COUNTER, PARTITION].flatMap(r => edges(rectPoly(r)))];
         const ahead = cast(p.x, p.y, fx, fy, walls), behind = cast(p.x, p.y, -fx, -fy, walls);
@@ -2014,6 +2021,23 @@ details[open] summary { margin-bottom: 8px; }
         part(g, chromeM, tx, base + 28, tz + 9, 2.6, 2.6, 20);
         part(g, chromeM, tx, base + 24, tz + 18, 2.6, 4, 2.6);
         part(g, chromeM, tx + 3.5, base + 19, tz, 7, 1.4, 1.8);   // lever on the side of the tap
+      } else if (kind === 'monitor'){
+        // Computer monitor: thin panel with a narrow bezel and a small chin, on a column and a flat foot.
+        // The screen faces local -z (turned towards the room like the TV).
+        const bodyM = mat('#1e1f21', { roughness:0.45, metalness:0.3 }), standM = mat('#2c2e31', { roughness:0.35, metalness:0.6 });
+        const screenM = mat('#050607', { roughness:0.08, metalness:0.15 });
+        const sh = tvSize(p.inches || 21).screenH + 1.6, y0 = base + 10, fd = Math.min(18, d - 2);
+        part(g, standM, 0, base, 1, Math.min(24, w*0.45), 1, fd);                   // foot
+        part(g, standM, 0, base + 1, 3.5, 5, y0 - base + sh*0.4, 2);                  // column
+        part(g, bodyM, 0, y0, 0, w, sh, 1.6);                                         // panel
+        part(g, bodyM, 0, y0 + sh*0.2, 1.6, w*0.4, sh*0.45, 1.8);                     // back cover
+        part(g, screenM, 0, y0 + 1.6, -0.85, w - 1.2, sh - 2.2, 0.15, false);         // glass
+        if (p.screen && p.screen !== 'off'){
+          const pic = new THREE.Mesh(new THREE.PlaneGeometry((w - 1.6)/100, (sh - 2.6)/100),
+            mat('#000000', { emissive:new THREE.Color('#ffffff'), emissiveMap:tvPicture(p.screen), emissiveIntensity:1, roughness:0.15 }));
+          pic.geometry.rotateY(Math.PI);
+          pic.position.set(0, (y0 + 1.6 + (sh - 2.2)/2)/100, -0.95/100); g.add(pic);
+        }
       } else if (kind === 'tv'){
         // Modern flat TV on two slim feet near its ends, standing on whatever is below it. The screen faces
         // local -z (into the room); a thin dark panel with a narrow bezel, a glossy black screen, a slightly
@@ -2302,6 +2326,8 @@ details[open] summary { margin-bottom: 8px; }
   function openTvPanel(p){
     tvSel = p.id;
     $('tvName').textContent = p.name;
+    const mon = p.kind === 'monitor';
+    $('tvSizeIn').min = mon ? 15 : 24; $('tvSizeIn').max = mon ? 49 : 85;
     $('tvSizeIn').value = p.inches || 50; showTvSize(p.inches || 50);
     $('tvPics').querySelectorAll('[data-pic]').forEach(b => b.setAttribute('aria-pressed', b.dataset.pic === (p.screen || 'off')));
     $('tvPanel').hidden = false;
@@ -2312,7 +2338,8 @@ details[open] summary { margin-bottom: 8px; }
   $('tvSizeIn').addEventListener('input', e => {
     const p = byId(tvSel); if (!p) return;
     const v = +e.target.value; showTvSize(v);
-    if (p.name === (p.inches + '″ TV')){ p.name = v + '″ TV'; $('tvName').textContent = p.name; }
+    const sfx = p.kind === 'monitor' ? '″ monitor' : '″ TV';
+    if (p.name === (p.inches + sfx)){ p.name = v + sfx; $('tvName').textContent = p.name; }
     p.inches = v; p.w = tvSize(v).w;
     ls.set(STORE_KEY, pieces);
     cancelAnimationFrame(tvRebuild); tvRebuild = requestAnimationFrame(() => rebuild3D());
@@ -2368,6 +2395,27 @@ details[open] summary { margin-bottom: 8px; }
     return tvPics[name] = t;
   }
 
+  // In the overview, hide trees and bushes that stand between the camera and the apartment (or that the
+  // camera is inside), so you always look into the rooms instead of into a tree
+  function cutTrees(){
+    const C = T3.camera.position, Tg = T3.controls.target, v = Tg.clone().sub(C), vv = v.lengthSq();
+    const orbit = view !== 'walk', P = new THREE.Vector3();
+    let changed = false;
+    for (const o of T3.outside.children){
+      let cut = false;
+      if (orbit){
+        P.copy(o.position);
+        const t = Math.max(0, Math.min(1, P.clone().sub(C).dot(v)/vv)), r = o.userData.r || 1;
+        const closest = C.clone().addScaledVector(v, t);
+        cut = (t < 0.92 && P.distanceTo(closest) < r + 1.2) || P.distanceTo(C) < r + 1.5;
+      }
+      if (cut !== !!o.userData.cut){ o.userData.cut = cut; changed = true; }
+      const vis = !cut && !o.userData.seasonOff;
+      if (o.visible !== vis) o.visible = vis;
+    }
+    if (changed && T3.pt) ptMarkDirty(600);
+  }
+
   // ---------- Outside: trees and bushes ----------
   // The apartment floor is on the first floor, STREET cm above the ground. In front of the balcony (north-east,
   // towards -z) is a lot of green: a double row of tall trees whose crowns fill the view from the windows,
@@ -2388,7 +2436,7 @@ details[open] summary { margin-bottom: 8px; }
       const l = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, a.distanceTo(b), 8), barkM);
       l.position.copy(a).add(b).multiplyScalar(0.5);
       l.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
-      l.castShadow = l.receiveShadow = true; O.add(l);
+      l.castShadow = l.receiveShadow = true; l.userData.r = 0.6; O.add(l);
     };
     // A lumpy leafy clump: a slightly irregular sphere
     const clump = (m, x, y, z, s, sy, list) => {
@@ -2396,7 +2444,7 @@ details[open] summary { margin-bottom: 8px; }
       for (let i = 0; i < pos.count; i++){ const f = 0.85 + rnd()*0.3; pos.setXYZ(i, pos.getX(i)*f, pos.getY(i)*f*sy, pos.getZ(i)*f); }
       g.computeVertexNormals();
       const c = new THREE.Mesh(g, m);
-      c.position.set(x, y, z); c.userData.s = s; c.scale.setScalar(s);
+      c.position.set(x, y, z); c.userData.s = s; c.userData.r = s*1.15; c.scale.setScalar(s);
       c.castShadow = c.receiveShadow = true; O.add(c); list.push(c);
     };
     for (let row = 0; row < 2; row++) for (let x = -12 + row*1.7; x < 17; x += 3.4){
@@ -2524,7 +2572,7 @@ details[open] summary { margin-bottom: 8px; }
     T3.envInfo = { day, W, bg, lampsOn };
     // Trees follow the seasons on the date slider
     const season = treeSeason(env.day);
-    for (const c of T3.crowns){ c.visible = season.show; c.scale.setScalar(c.userData.s*season.scale); }
+    for (const c of T3.crowns){ c.userData.seasonOff = !season.show; c.visible = season.show && !c.userData.cut; c.scale.setScalar(c.userData.s*season.scale); }
     T3.crownMats.forEach((m, i) => m.color.copy(lin(season.colors[i % season.colors.length])));
     T3.bushMats.forEach((m, i) => m.color.copy(lin(season.bush[i % season.bush.length])));
     if (T3.pt && T3.seasonKey !== season.key) ptMarkDirty(500);
@@ -2792,6 +2840,7 @@ details[open] summary { margin-bottom: 8px; }
     const tick = t => {
       const dt = Math.min(0.05, (t - T3.last)/1000); T3.last = t;
       if (T3.anim) stepIntro(dt); else if (view === 'walk') walkStep(dt); else T3.controls.update();
+      cutTrees();
       if (env.play){
         env.min = (env.min + dt*60) % 1440;
         $('timeRange').value = Math.round(env.min/5)*5;
