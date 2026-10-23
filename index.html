@@ -2294,7 +2294,8 @@ details[open] summary { margin-bottom: 8px; }
       c.castShadow = c.receiveShadow = true; O.add(c); list.push(c);
     };
     for (let row = 0; row < 2; row++) for (let x = -12 + row*1.7; x < 17; x += 3.4){
-      const tx = x + (rnd() - 0.5)*1.2, tz = -7.2 - row*3.4 + (rnd() - 0.5)*1.2;
+      // first row about 3.5 m beyond the balcony railing, second row about 3 m further
+      const tx = x + (rnd() - 0.5)*1.2, tz = -4.4 - row*3.2 + (rnd() - 0.5)*1.0;
       const h = 10 + rnd()*5, trunkH = 2 + rnd()*1, r = 0.17 + rnd()*0.08;
       const foot = new THREE.Vector3(tx, -S, tz), top = new THREE.Vector3(tx + (rnd() - 0.5)*0.3, -S + trunkH, tz + (rnd() - 0.5)*0.3);
       limb(foot, top, r, r*0.75);
@@ -2313,7 +2314,7 @@ details[open] summary { margin-bottom: 8px; }
     // Bushes: a dense belt from beyond the path to behind the trees, 1.5–3.5 m tall, hiding the trunks
     for (let x = -14; x < 19; x += 1.1) for (let band = 0; band < 3; band++){
       if (rnd() < 0.15) continue;
-      const z = -5.6 - band*2.6 - rnd()*2, hgt = 1.5 + rnd()*2, s = 0.8 + rnd()*0.8;
+      const z = -3.4 - band*2.4 - rnd()*1.8, hgt = 1.5 + rnd()*2, s = 0.8 + rnd()*0.8;
       clump(bushMats[Math.floor(rnd()*3)], x + (rnd() - 0.5), -S + hgt*0.55, z, s, hgt/(2*s), bushes);
     }
     scene.add(O);
