@@ -220,6 +220,9 @@ details[open] summary { margin-bottom: 8px; }
 .tvpanel { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; gap: 8px; min-width: 260px; max-width: calc(100% - 20px);
   padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--floor) 94%, transparent); border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(0,0,0,.18); }
 .tvpanel[hidden] { display: none; }
+/* The picture's little panel floats just above the picture itself */
+#hangPanel { min-width: 0; padding: 6px 8px; transform: translate(-50%, calc(-100% - 10px)); }
+#hangPanel .head { font-size: 13px; gap: 10px; }
 .tvpanel .head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .tvpanel .head span { flex: 1; }
 .tvpanel .fov input { width: 150px; }
@@ -376,8 +379,7 @@ details[open] summary { margin-bottom: 8px; }
       <div class="stage3d" id="stage3d">
         <p class="stage-msg" id="stageMsg">Loading 3D…</p>
         <div class="tvpanel" id="hangPanel" hidden>
-          <div class="head"><span id="hangName">Picture</span><button class="link" id="hangClose" aria-label="Close">✕</button></div>
-          <div class="row"><button id="hangMove">Move</button><button class="danger" id="hangRemove">Take down</button></div>
+          <div class="head"><span id="hangName">Picture</span><button class="danger" id="hangRemove">Take down</button><button class="link" id="hangClose" aria-label="Close">✕</button></div>
         </div>
         <div class="tvpanel" id="tvPanel" hidden>
           <div class="head"><span id="tvName">TV</span><button class="link" id="tvClose" aria-label="Close">✕</button></div>
@@ -2509,14 +2511,20 @@ details[open] summary { margin-bottom: 8px; }
   function openHangPanel(hg){
     hangSel = hg.id; $('hangName').textContent = PICTURES[hg.pic] ? PICTURES[hg.pic].name : 'Picture';
     $('hangPanel').hidden = false;
+    placeHangPanel();
+  }
+  // Keep the panel just above the picture on screen (called every frame while it is open)
+  function placeHangPanel(){
+    const hg = s3.hangings.find(h => h.id === hangSel), P = hg && PICTURES[hg.pic], el = $('hangPanel');
+    if (!P || !T3){ el.hidden = true; return; }
+    const v = new THREE.Vector3(hg.x/100, (hg.y + P.h/2 + (P.frame ? 2.5 : 0))/100, hg.z/100).project(T3.camera);
+    const sz = T3.renderer.getSize(new THREE.Vector2());
+    el.style.visibility = v.z > 1 ? 'hidden' : 'visible';
+    el.style.left = Math.max(60, Math.min(sz.x - 60, (v.x + 1)/2*sz.x)) + 'px';
+    el.style.top = Math.max(50, (1 - v.y)/2*sz.y) + 'px';
   }
   const closeHangPanel = () => { $('hangPanel').hidden = true; hangSel = null; };
   $('hangClose').onclick = closeHangPanel;
-  $('hangMove').onclick = () => {
-    const hg = s3.hangings.find(h => h.id === hangSel); if (!hg) return;
-    hangMoving = hg.id; hangPic = hg.pic; closeHangPanel(); renderPicList();
-    toast('Click a wall where the picture should go');
-  };
   $('hangRemove').onclick = () => {
     s3.hangings = s3.hangings.filter(h => h.id !== hangSel); closeHangPanel(); save3(); renderPicList(); rebuild3D();
   };
@@ -3047,6 +3055,7 @@ details[open] summary { margin-bottom: 8px; }
       const dt = Math.min(0.05, (t - T3.last)/1000); T3.last = t;
       if (T3.anim) stepIntro(dt); else if (view === 'walk') walkStep(dt); else T3.controls.update();
       cutTrees();
+      if (!$('hangPanel').hidden) placeHangPanel();
       if (env.play){
         env.min = (env.min + dt*60) % 1440;
         $('timeRange').value = Math.round(env.min/5)*5;
