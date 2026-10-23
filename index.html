@@ -1296,7 +1296,22 @@ details[open] summary { margin-bottom: 8px; }
     }
     commit(); toast(s ? 'Layout and 3D settings loaded' : 'Layout loaded');
   };
-  $('resetBtn').onclick = () => { remember(); pieces = clone(EXAMPLE); selId = null; commit(); toast('Default layout restored. Undo brings yours back.'); };
+  // Reset everything to the built-in default: furniture and the 3D settings (heights, colours, wall pictures).
+  // Asks for a second click first, because the 3D settings can't be undone.
+  let resetArmed = 0;
+  $('resetBtn').onclick = () => {
+    if (!resetArmed){
+      $('resetBtn').textContent = 'Click again to reset furniture, heights, colours and pictures';
+      resetArmed = setTimeout(() => { resetArmed = 0; $('resetBtn').textContent = 'Reset to default layout'; }, 4000);
+      return;
+    }
+    clearTimeout(resetArmed); resetArmed = 0; $('resetBtn').textContent = 'Reset to default layout';
+    remember(); pieces = clone(EXAMPLE); selId = null;
+    const d = clone(DEFAULTS_3D);
+    Object.assign(s3, { room:{ ...ROOM_H, ...(d.room || {}) }, h:d.h || {}, c:d.c || {}, frame:d.frame || '#fafaf8', fov:d.fov || 90, hangings:d.hangings || [] });
+    save3(); render3DPanel(); renderPicList(); rebuild3D();
+    commit(); toast('Default layout and 3D settings restored');
+  };
 
   document.addEventListener('keydown', e => {
     if (mode === '3d' || e.target.closest('input, textarea')) return;
