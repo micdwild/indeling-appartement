@@ -419,7 +419,7 @@ details[open] summary { margin-bottom: 8px; }
       <div class="card">
         <h2>Wall pictures</h2>
         <ul class="hrows" id="picList"></ul>
-        <p class="empty" style="font-size:12.5px">Click <b>Hang</b>, then click a wall in the 3D view: the picture's middle goes where you click. Click a hung picture to move it or take it down.</p>
+        <p class="empty" style="font-size:12.5px">Click <b>Hang</b>, then click a wall in the 3D view: the picture's middle goes where you click. Drag a hung picture to move it along the wall; click it to take it down.</p>
       </div>
       <div class="card">
         <h2>You</h2>
@@ -1510,7 +1510,7 @@ details[open] summary { margin-bottom: 8px; }
     let look = null;
     renderer.domElement.addEventListener('pointerdown', e => { if (view === 'walk'){ look = { x:e.clientX, y:e.clientY }; renderer.domElement.setPointerCapture(e.pointerId); } });
     renderer.domElement.addEventListener('pointermove', e => {
-      if (!look) return;
+      if (!look || dragHang) return;
       // Drag the view: moving the mouse right pulls the room right (you turn left)
       walk.yaw += (e.clientX - look.x) * 0.005;
       walk.pitch = Math.max(-1.2, Math.min(1.2, walk.pitch + (e.clientY - look.y) * 0.005));
@@ -1536,8 +1536,38 @@ details[open] summary { margin-bottom: 8px; }
     const seatAt = hit => { const p = byId(pieceAt(hit)); return p && ['chair', 'officeChair', 'couch'].includes(shapeOf(p)) ? p : null; };
     const doorAt = hit => { for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.door !== undefined) return o.userData.door; return -1; };
     let down = null;
-    renderer.domElement.addEventListener('pointerdown', e => { down = { x:e.clientX, y:e.clientY }; });
+    renderer.domElement.addEventListener('pointerdown', e => {
+      down = { x:e.clientX, y:e.clientY };
+      if (hangPic) return;
+      const hg = hangAt.find(firstHit(e));
+      if (hg){
+        let grp = null; T3.group.traverse(o => { if (o.userData.hanging === hg.id) grp = o; });
+        dragHang = { hg, grp, moved:false };
+        T3.controls.enabled = false; renderer.domElement.setPointerCapture(e.pointerId);
+      }
+    });
+    // Dragging a picture: it follows the wall under the pointer, also around corners and onto other walls
+    renderer.domElement.addEventListener('pointermove', e => {
+      if (!dragHang) return;
+      if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && !dragHang.moved) return;
+      const r = renderer.domElement.getBoundingClientRect();
+      ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left)/r.width)*2 - 1, -((e.clientY - r.top)/r.height)*2 + 1), camera);
+      const hit = ray.intersectObjects(T3.group.children, true).find(h => h.object.userData.wall);
+      const spot = wallSpot(hit); if (!spot) return;
+      Object.assign(dragHang.hg, spot); dragHang.moved = true;
+      if (dragHang.grp){ dragHang.grp.position.set(spot.x/100, spot.y/100, spot.z/100); dragHang.grp.rotation.y = Math.atan2(spot.nx, spot.nz); }
+      renderer.domElement.style.cursor = 'grabbing';
+    });
+    const endDragHang = () => {
+      if (!dragHang) return;
+      const moved = dragHang.moved; dragHang = null;
+      T3.controls.enabled = view !== 'walk';
+      if (moved){ save3(); rebuild3D(); }
+    };
+    renderer.domElement.addEventListener('pointercancel', endDragHang);
     renderer.domElement.addEventListener('pointerup', e => {
+      if (dragHang && dragHang.moved){ endDragHang(); down = null; return; }
+      endDragHang();
       const click = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6;
       down = null;
       if (!click) return;
@@ -1593,7 +1623,8 @@ details[open] summary { margin-bottom: 8px; }
       if (e.buttons) return;
       const hit = firstHit(e);
       renderer.domElement.style.cursor = hangPic ? (hit && hit.object.userData.wall ? 'copy' : 'not-allowed')
-        : doorAt(hit) >= 0 || windowAt(hit) >= 0 || seatAt(hit) || hangAt.find(hit) ? 'pointer'
+        : hangAt.find(hit) ? 'grab'
+        : doorAt(hit) >= 0 || windowAt(hit) >= 0 || seatAt(hit) ? 'pointer'
         : hit && T3.floors.includes(hit.object) ? 'crosshair' : '';
     });
   }
@@ -2442,7 +2473,14 @@ details[open] summary { margin-bottom: 8px; }
     t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
     return picTex[key] = t;
   }
-  let hangPic = null, hangMoving = null, hangSel = null;
+  let hangPic = null, hangMoving = null, hangSel = null, dragHang = null;
+  // Spot on a wall (picture centre slightly in front of it, facing out of the wall), or null
+  function wallSpot(hit){
+    if (!hit || !hit.object.userData.wall) return null;
+    const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+    if (Math.abs(n.y) > 0.3) return null;
+    return { x:hit.point.x*100 + n.x*0.5, y:Math.max(30, Math.min(s3.room.ceiling - 20, hit.point.y*100)), z:hit.point.z*100 + n.z*0.5, nx:Math.round(n.x), nz:Math.round(n.z) };
+  }
   function renderPicList(){
     $('picList').innerHTML = Object.entries(PICTURES).map(([k, P]) => {
       const n = s3.hangings.filter(h => h.pic === k).length;
@@ -2460,10 +2498,8 @@ details[open] summary { margin-bottom: 8px; }
   });
   // Put the picture (new, or the one being moved) on the wall where you clicked
   function hangAt(hit){
-    if (!hit || !hit.object.userData.wall){ toast('Click on a wall to hang the picture'); return; }
-    const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-    if (Math.abs(n.y) > 0.3){ toast('Click on a wall to hang the picture'); return; }
-    const spot = { x:hit.point.x*100 + n.x*0.5, y:Math.max(30, Math.min(s3.room.ceiling - 20, hit.point.y*100)), z:hit.point.z*100 + n.z*0.5, nx:Math.round(n.x), nz:Math.round(n.z) };
+    const spot = wallSpot(hit);
+    if (!spot){ toast('Click on a wall to hang the picture'); return; }
     if (hangMoving){ Object.assign(s3.hangings.find(h => h.id === hangMoving) || {}, spot); hangMoving = null; }
     else s3.hangings.push({ id:'hang' + Date.now(), pic:hangPic, ...spot });
     hangPic = null;
