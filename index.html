@@ -1428,7 +1428,7 @@ details[open] summary { margin-bottom: 8px; }
     envScene.add(new THREE.Mesh(envGeo, new THREE.MeshBasicMaterial({ vertexColors:true, side:THREE.BackSide, toneMapped:false })));
     const pmrem = new THREE.PMREMGenerator(renderer);
     T3 = { renderer, scene, camera, controls, group:null, raf:0, last:0, sun, hemi, amb, lamps, rain, winLights, envScene, envGeo, pmrem,
-      outside:outside.group, crowns:outside.crowns, crownMats:outside.crownMats };
+      outside:outside.group, crowns:outside.crowns, crownMats:outside.crownMats, bushMats:outside.bushMats };
 
     new ResizeObserver(resize3D).observe(stage);
     let look = null;
@@ -2262,72 +2262,71 @@ details[open] summary { margin-bottom: 8px; }
     return woodTex;
   }
 
-  // ---------- Outside: building below, cycleway and trees ----------
-  // The apartment floor is on the first floor, STREET cm above the street. In front of the balcony (north-east,
-  // towards -z) runs a cycleway, and beyond it a double row of tall trees whose crowns reach the windows.
+  // ---------- Outside: trees and bushes ----------
+  // The apartment floor is on the first floor, STREET cm above the ground. In front of the balcony (north-east,
+  // towards -z) is a lot of green: a double row of tall trees whose crowns fill the view from the windows,
+  // with bushes under and between them.
   const STREET = 300;
   function buildOutside(scene){
     const O = new THREE.Group();
     const mk = (c, extra) => new THREE.MeshStandardMaterial({ color:lin(c), roughness:0.9, envMapIntensity:0.6, ...(extra || {}) });
-    const box = (m, x1, y1, z1, x2, y2, z2) => {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, y2 - y1, z2 - z1), m);
-      b.position.set((x1 + x2)/2, (y1 + y2)/2, (z1 + z2)/2); b.castShadow = b.receiveShadow = true; O.add(b); return b;
-    };
     const S = STREET/100;
-    // Ground floor below the apartment (outer outline of both rooms), in light plaster
-    const plaster = mk('#d8d2c8');
-    box(plaster, -3.64, -S, 1.27, 6.36, -0.16, 5.53);
-    box(plaster, 2.86, -S, -0.12, 6.36, -0.16, 1.27);
-    // Cycleway along the building, in red asphalt with a dashed white middle line, and kerbs
-    const z0 = -2.4, z1 = -4.9;
-    box(mk('#9b4a3f', { roughness:0.95 }), -20, -S, z1, 24, -S + 0.02, z0);
-    for (let x = -19.5; x < 24; x += 2) box(mk('#f2f2ec'), x, -S + 0.02, (z0 + z1)/2 - 0.05, x + 1, -S + 0.025, (z0 + z1)/2 + 0.05);
-    for (const z of [z0, z1]) box(mk('#a9a6a0'), -20, -S, z - 0.08, 24, -S + 0.1, z + 0.08);
-    // Trees: two staggered rows beyond the cycleway; trunk, a few branches and a crown of leafy clumps
+    // Greenery seen from the windows: tall trees with low, full crowns and plenty of bushes under and between
+    // them, so the view is leaves rather than trunks. (No building below or cycleway: they are not needed.)
     let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const barkM = mk('#5a4c40', { roughness:1 });
     const crownMats = [0, 1, 2].map(() => mk('#4f7f37', { roughness:0.85 }));
-    const crowns = [];
+    const bushMats = [0, 1, 2].map(() => mk('#3f6b30', { roughness:0.9 }));
+    const crowns = [], bushes = [];
     const limb = (a, b, r0, r1) => {
       const l = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, a.distanceTo(b), 8), barkM);
       l.position.copy(a).add(b).multiplyScalar(0.5);
       l.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
       l.castShadow = l.receiveShadow = true; O.add(l);
     };
+    // A lumpy leafy clump: a slightly irregular sphere
+    const clump = (m, x, y, z, s, sy, list) => {
+      const g = new THREE.IcosahedronGeometry(1, 1), pos = g.attributes.position;
+      for (let i = 0; i < pos.count; i++){ const f = 0.85 + rnd()*0.3; pos.setXYZ(i, pos.getX(i)*f, pos.getY(i)*f*sy, pos.getZ(i)*f); }
+      g.computeVertexNormals();
+      const c = new THREE.Mesh(g, m);
+      c.position.set(x, y, z); c.userData.s = s; c.scale.setScalar(s);
+      c.castShadow = c.receiveShadow = true; O.add(c); list.push(c);
+    };
     for (let row = 0; row < 2; row++) for (let x = -12 + row*1.7; x < 17; x += 3.4){
       const tx = x + (rnd() - 0.5)*1.2, tz = -7.2 - row*3.4 + (rnd() - 0.5)*1.2;
-      const h = 9 + rnd()*5, trunkH = 3 + rnd()*1.5, r = 0.16 + rnd()*0.08;
-      const foot = new THREE.Vector3(tx, -S, tz), top = new THREE.Vector3(tx + (rnd() - 0.5)*0.4, -S + trunkH, tz + (rnd() - 0.5)*0.4);
+      const h = 10 + rnd()*5, trunkH = 2 + rnd()*1, r = 0.17 + rnd()*0.08;
+      const foot = new THREE.Vector3(tx, -S, tz), top = new THREE.Vector3(tx + (rnd() - 0.5)*0.3, -S + trunkH, tz + (rnd() - 0.5)*0.3);
       limb(foot, top, r, r*0.75);
-      const crownC = new THREE.Vector3(top.x, -S + trunkH + (h - trunkH)*0.55, top.z);
+      // Crown from just above the trunk (about the floor level of the apartment) up to the treetop
+      const cBottom = -S + trunkH + 0.5, cTop = -S + h, cy = (cBottom + cTop)/2, spread = 2.3 + rnd()*1.2;
       for (let k = 0; k < 5; k++){
-        const a = k/5*Math.PI*2 + rnd(), up = 0.5 + rnd()*0.4;
-        const end = crownC.clone().add(new THREE.Vector3(Math.cos(a)*(1.2 + rnd()*1.3), (h - trunkH)*up*0.6, Math.sin(a)*(1.2 + rnd()*1.3)));
-        limb(top, end, r*0.6, r*0.25);
+        const a = k/5*Math.PI*2 + rnd();
+        limb(top, new THREE.Vector3(top.x + Math.cos(a)*(1 + rnd()*1.2), cy + rnd()*2, top.z + Math.sin(a)*(1 + rnd()*1.2)), r*0.6, r*0.25);
       }
-      const spread = 2 + rnd()*1.2, nClumps = 7 + Math.floor(rnd()*4);
+      const nClumps = 10 + Math.floor(rnd()*5);
       for (let k = 0; k < nClumps; k++){
-        const g = new THREE.IcosahedronGeometry(1, 1), pos = g.attributes.position;
-        for (let i = 0; i < pos.count; i++){ const f = 0.85 + rnd()*0.3; pos.setXYZ(i, pos.getX(i)*f, pos.getY(i)*f, pos.getZ(i)*f); }
-        g.computeVertexNormals();
-        const c = new THREE.Mesh(g, crownMats[k % crownMats.length]);
-        const a = rnd()*Math.PI*2, rr = rnd()*spread*0.7;
-        c.position.set(crownC.x + Math.cos(a)*rr, crownC.y + (rnd() - 0.3)*(h - trunkH)*0.45, crownC.z + Math.sin(a)*rr);
-        c.userData.s = 1.3 + rnd()*1.1; c.scale.setScalar(c.userData.s);
-        c.castShadow = c.receiveShadow = true; O.add(c); crowns.push(c);
+        const a = rnd()*Math.PI*2, rr = rnd()*spread*0.75, t = rnd();
+        clump(crownMats[k % 3], top.x + Math.cos(a)*rr, cBottom + 1.2 + t*(cTop - cBottom - 2), top.z + Math.sin(a)*rr, 1.3 + rnd()*1.1, 0.9, crowns);
       }
     }
+    // Bushes: a dense belt from beyond the path to behind the trees, 1.5–3.5 m tall, hiding the trunks
+    for (let x = -14; x < 19; x += 1.1) for (let band = 0; band < 3; band++){
+      if (rnd() < 0.15) continue;
+      const z = -5.6 - band*2.6 - rnd()*2, hgt = 1.5 + rnd()*2, s = 0.8 + rnd()*0.8;
+      clump(bushMats[Math.floor(rnd()*3)], x + (rnd() - 0.5), -S + hgt*0.55, z, s, hgt/(2*s), bushes);
+    }
     scene.add(O);
-    return { group:O, crowns, crownMats };
+    return { group:O, crowns, crownMats, bushMats };
   }
   // Leaf colour and fullness through the year: bare in winter, fresh green in spring, green in summer,
   // turning orange-brown in autumn
   function treeSeason(day){
-    if (day < 80 || day > 335) return { key:'winter', show:false, scale:1, colors:['#4f7f37'] };
-    if (day < 115) return { key:'spring', show:true, scale:0.75, colors:['#9cc56b', '#8dbb5c', '#a8cf78'] };
-    if (day < 255) return { key:'summer', show:true, scale:1, colors:['#4f7f37', '#5a8a3c', '#476f33'] };
-    if (day < 300) return { key:'autumn', show:true, scale:0.95, colors:['#c8902f', '#b5652a', '#9d8a35'] };
-    return { key:'late', show:true, scale:0.7, colors:['#a5622c', '#8e5a2e', '#b07a3a'] };
+    if (day < 80 || day > 335) return { key:'winter', show:false, scale:1, colors:['#4f7f37'], bush:['#4d5c37', '#56603c', '#465532'] };
+    if (day < 115) return { key:'spring', show:true, scale:0.75, colors:['#9cc56b', '#8dbb5c', '#a8cf78'], bush:['#6f9a4a', '#5f8c40', '#7aa552'] };
+    if (day < 255) return { key:'summer', show:true, scale:1, colors:['#4f7f37', '#5a8a3c', '#476f33'], bush:['#3f6b30', '#4a7a36', '#36602b'] };
+    if (day < 300) return { key:'autumn', show:true, scale:0.95, colors:['#c8902f', '#b5652a', '#9d8a35'], bush:['#6b7a35', '#8a7a33', '#5d6e31'] };
+    return { key:'late', show:true, scale:0.7, colors:['#a5622c', '#8e5a2e', '#b07a3a'], bush:['#5e6436', '#6d6234', '#535c33'] };
   }
 
   // ---------- Sun, time of day and weather ----------
@@ -2420,6 +2419,7 @@ details[open] summary { margin-bottom: 8px; }
     const season = treeSeason(env.day);
     for (const c of T3.crowns){ c.visible = season.show; c.scale.setScalar(c.userData.s*season.scale); }
     T3.crownMats.forEach((m, i) => m.color.copy(lin(season.colors[i % season.colors.length])));
+    T3.bushMats.forEach((m, i) => m.color.copy(lin(season.bush[i % season.bush.length])));
     if (T3.pt && T3.seasonKey !== season.key) ptMarkDirty(500);
     T3.seasonKey = season.key;
     if (T3.pt) T3.pt.envDirty = true;
