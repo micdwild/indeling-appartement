@@ -304,7 +304,7 @@ details[open] summary { margin-bottom: 8px; }
         <span class="legend" id="gridLegend" title="Each grid square is 50 × 50 cm"><span class="sq" aria-hidden="true"></span>= 50 cm</span>
         <button class="toggle" id="measBtn" aria-pressed="true" title="Show distances around the selected piece">Distances</button>
       </div>
-      <svg id="plan" viewBox="-420 -140 1116 750" role="img" aria-label="Top-down plan of the living room, bedroom and balcony with furniture">
+      <svg id="plan" viewBox="-420 -140 1116 1065" role="img" aria-label="Top-down plan of the living room, bedroom and balcony with furniture">
         <defs>
           <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="10" height="10" fill="var(--floor)"></rect>
@@ -474,7 +474,7 @@ details[open] summary { margin-bottom: 8px; }
           <li class="hrow"><span></span><label for="h3-ovenH">Combi-oven height</label><input id="h3-ovenH" data-room="ovenH" type="number" min="20" max="80"><span class="unit">cm</span></li>
           <li class="hrow"><span></span><label for="h3-wallBottom">Wall cupboards, bottom</label><input id="h3-wallBottom" data-room="wallBottom" type="number" min="100" max="260"><span class="unit">cm</span></li>
           <li class="hrow"><span></span><label for="h3-wallTop">Wall cupboards, top</label><input id="h3-wallTop" data-room="wallTop" type="number" min="120" max="600"><span class="unit">cm</span></li>
-          <li class="hrow"><span></span><label for="h3-wallDepth">Wall cupboards, depth</label><input id="h3-wallDepth" data-room="wallDepth" type="number" min="20" max="60"><span class="unit">cm</span></li>
+          <li class="hrow"><span></span><label for="h3-wallDepth">Wall cupboards, depth</label><input id="h3-wallDepth" data-room="wallDepth" type="number" min="20" max="70"><span class="unit">cm</span></li>
           <li class="hrow"><span></span><label for="h3-bulkBottom">Wall from ceiling, bottom</label><input id="h3-bulkBottom" data-room="bulkBottom" type="number" min="150" max="600"><span class="unit">cm</span></li>
         </ul>
         <p class="empty" style="font-size:12.5px">Heights are measured from the floor. The fridge column stands against the wall by the entrance; the oven sits on top of the fridge.</p>
@@ -503,6 +503,36 @@ details[open] summary { margin-bottom: 8px; }
   const RAILS = [[-374,-92,646,-82],[-374,-82,-364,127],[636,-82,646,-12]];
   const INDOOR = [ROOM, BEDROOM];
   const ROOMS = [ROOM, BEDROOM, BALCONY];
+  // Bathroom and corridor (sizes partly guessed). The bathroom is 222 × 320 cm below the bedroom (left wall in line
+  // with the bedroom's); a 12 cm wall separates it from the 120 cm wide corridor, which runs below the bedroom and
+  // the living room up to just past the living room entrance.
+  const BATHROOM = [[-352,553],[-128,553],[-128,893],[-352,893]];   // 224 × 340: 50 cm sink + the measured 174 cm (its wall then ends
+  // exactly at the bedroom door, 236 cm from the bedroom's left wall)
+  // 120 cm wide in front of the bathroom and toilet doors, 240 cm wide from the toilet's right wall onwards
+  const CORRIDOR = [[-116,553],[424,553],[424,793],[16,793],[16,703],[-116,703]];
+  // Toilet: next to the bathroom (12 cm wall between them), below the corridor, its bottom wall in line with the
+  // bathroom's. About 120 cm wide; door (90 cm, opening into the corridor) in its top wall; the toilet bowl stands
+  // against the bottom wall, so you face the door when sitting.
+  const TOILET = [[-116,715],[4,715],[4,893],[-116,893]];   // top wall moved down to make room for the wide bathroom door
+  const TOILET_DOOR = [-101, 613, -11, 703];
+  // Storage room below the kitchen: 188 × 150 cm, sharing its right wall with the kitchen's right wall; its door
+  // (120 cm like the living room door, opening into the corridor) is in its left wall, at the end of the corridor
+  const STORAGE = [[436,553],[624,553],[624,703],[436,703]];
+  const STORAGE_DOOR = [304, 568, 424, 688];
+  const PLAN_ROOMS = [...ROOMS, BATHROOM, CORRIDOR, TOILET, STORAGE];
+  const ESTIMATED = [BATHROOM, CORRIDOR, TOILET, STORAGE];
+  const WALK_ROOMS = PLAN_ROOMS;
+  const isEstimated = (x, y) => ESTIMATED.some(r => pointIn([x, y], r));
+  const BATH_DOOR = [-238, 563, -128, 673];        // 110 cm door in the bathroom's right wall, opening inward
+  // Fixed things in the bathroom: double sink against the left wall (87 cm from the top wall, 100 × 48 cm),
+  // the walk-in shower across the bottom (100 cm deep) and a towel radiator on the right wall
+  const BATH_FIXTURES = [
+    { name:'the bathroom sink', rect:[-352, 640, -302, 760] },     // 87 cm below the top wall, 120 × 50 cm
+    { name:'the shower',        rect:[-352, 793, -128, 893] },
+    { name:'the towel radiator', rect:[-138, 690, -128, 760] },
+    { name:'the toilet', rect:[-75, 833, -37, 893] },
+  ];
+  const SHOWER_GLASS = [-352, -212];   // glass screen along the top of the shower; the rest is the open way in
   const BED_WIN = [-277, -87];  // 190 cm window on the north-east side, centred
   const COUNTER = [[350,484,624,541],[567,404,624,484]];
   // 10 cm kitchen wall between the entrance and the kitchen (parallel to the 402 cm wall).
@@ -521,15 +551,15 @@ details[open] summary { margin-bottom: 8px; }
   // [window start, window end, wall line] → a square as deep as the pane is wide, inside the 6 cm frame
   const WIN_ZONES = [[49, 243, 139, 'the living room window'], [298, 486, 0, 'the big living room window'], [BED_WIN[0], BED_WIN[1], 139, 'the bedroom window']]
     .map(([a, b, y, name]) => { const pw = (b - a)/2 - 12; return { rect:[b - 6 - pw, y, b - 6, y + pw], name }; });
-  const SNAP_X = [-364,-352,-12,0,286,298,334,340,350,567,624,636];
-  const SNAP_Y = [-82,-12,0,127,139,404,421,484,541];
+  const SNAP_X = [-364,-352,-302,-212,-138,-128,-116,4,16,0,286,298,334,340,350,424,436,567,624,636];
+  const SNAP_Y = [-82,-12,0,127,139,404,421,484,541,553,640,673,703,715,760,793,893];
   const STORE_KEY = 'living-room-planner.v1';
   const SAVES_KEY = 'living-room-planner.saves.v1';
 
   // Default layout and 3D settings: the user's own setup (from a layout code, 23 Oct 2026, evening).
   // Used for anyone opening the page without saved data of their own.
-  const EXAMPLE = [{"id":"couch","name":"Zetel","w":173,"h":90,"color":1,"x":200,"y":334.5,"rot":90,"placed":true,"type":"couch"},{"id":"coffee","name":"Tafeltje","w":45,"h":55,"color":3,"x":207.5,"y":222.5,"rot":90,"placed":true,"type":"table"},{"id":"table","name":"Tafel","w":160,"h":80,"color":2,"x":435,"y":255,"rot":270,"placed":true,"type":"angled"},{"id":"cupboard","name":"Zwarte kast","w":80,"h":55,"color":4,"x":40,"y":513.5,"rot":0,"placed":true,"type":"box"},{"id":"high","name":"Keukenkastje","w":40,"h":53,"color":5,"x":597.5,"y":265,"rot":90,"placed":true,"type":"drawers"},{"id":"wardrobe","name":"Kast molly","w":127,"h":52,"color":6,"x":-38,"y":228.5,"rot":90,"placed":true,"type":"wardrobe"},{"id":"c1792747892573","name":"Bureau 200","w":80,"h":200,"color":7,"x":524,"y":55,"rot":90,"placed":true,"custom":true,"type":"desk"},{"id":"c1792747948957","name":"Jamban","w":60,"h":120,"color":8,"x":594,"y":344,"rot":0,"placed":true,"custom":true,"type":"shelves"},{"id":"chair1","name":"Chair 1","w":45,"h":50,"color":7,"x":465,"y":222.5,"rot":270,"placed":true,"custom":true,"type":"chair"},{"id":"chair2","name":"Chair 2","w":45,"h":50,"color":7,"x":465,"y":287.5,"rot":270,"placed":true,"custom":true,"type":"chair"},{"id":"chair3","name":"Chair 3","w":45,"h":50,"color":7,"x":410,"y":222.5,"rot":90,"placed":true,"custom":true,"type":"chair"},{"id":"chair4","name":"Chair 4","w":45,"h":50,"color":7,"x":410,"y":287.5,"rot":90,"placed":true,"custom":true,"type":"chair"},{"id":"c1792748171973","name":"Sordino","w":180,"h":40,"color":7,"x":20,"y":331,"rot":90,"placed":true,"custom":true,"type":"rounded"},{"id":"tv1792751975472","kind":"tv","name":"50″ TV","inches":50,"w":111,"h":25,"color":8,"x":12.5,"y":330.5,"rot":270,"placed":true,"custom":true,"screen":"off"},{"id":"hob1792755981802","kind":"hob","name":"Inductievuur","w":50,"h":40,"color":8,"x":595,"y":446,"rot":270,"placed":true,"custom":true,"type":"box"},{"id":"sink1792756114868","kind":"sink","name":"Kraan","w":113,"h":50,"color":8,"x":456.5,"y":516,"rot":180,"placed":true,"custom":true,"bowls":2,"drainer":"right","bowlW":[40,20],"drainW":40,"depth":50,"type":"box"},{"id":"bed","name":"Bed Michiel","type":"bed","w":160,"h":200,"color":2,"x":-252,"y":285,"rot":270,"placed":true,"custom":true},{"id":"cupboard2","name":"Kast Michiel","type":"wardrobe","w":117,"h":50,"color":4,"x":-37,"y":353.5,"rot":90,"placed":true,"custom":true},{"id":"c1792757779741","name":"Chair 4 2","w":45,"h":50,"color":7,"x":-292.5,"y":516,"rot":180,"placed":false,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792757786223","name":"Chair 4 2 2","w":45,"h":50,"color":7,"x":-217.5,"y":516,"rot":0,"placed":false,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792759494242","name":"Chair 3 2","w":45,"h":50,"color":7,"x":-287.5,"y":516,"rot":0,"placed":true,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792759499808","name":"Chair 3 2 2","w":45,"h":50,"color":7,"x":-217.5,"y":516,"rot":0,"placed":true,"custom":true,"type":"chair","kind":"chair"},{"id":"plant1792770104539","kind":"plant","name":"Klein plantje","w":18,"h":18,"color":8,"x":19,"y":259,"rot":0,"placed":true,"custom":true},{"id":"c1792770122388","name":"Large plant","type":"plantL","w":50,"h":50,"color":7,"x":25,"y":164,"rot":0,"placed":true,"custom":true},{"id":"c1792770133472","name":"Plant stand","type":"plantStand","w":40,"h":40,"color":7,"x":105,"y":521,"rot":0,"placed":true,"custom":true},{"id":"c1792770160204","name":"Plant","type":"plantM","w":35,"h":35,"color":7,"x":17.5,"y":523.5,"rot":270,"placed":true,"custom":true},{"id":"monitor1792771492549","kind":"monitor","name":"Computerscherm","inches":21,"w":46,"h":20,"color":8,"x":590,"y":30,"rot":180,"placed":true,"custom":true,"screen":"city"},{"id":"c1792773136944","name":"Bureaustoel","type":"officeChair","w":60,"h":60,"color":7,"x":575,"y":97,"rot":0,"placed":true,"custom":true,"kind":"chair"}];
-  const DEFAULTS_3D = {"room":{"ceiling":280,"windowTop":200,"door":200,"counter":90,"fridgeW":60,"fridgeTop":145,"ovenH":45,"wallBottom":145,"wallTop":230,"wallDepth":35,"person":182,"bulkBottom":220},"h":{"high":140,"c1792747948957":90,"coffee":50,"c1792748171973":44,"c1792759494242":90,"c1792759499808":90},"c":{"couch":"#9d4d0c","coffee":"#835a25","chair1":"#437050","chair2":"#437050","chair3":"#437050","chair4":"#437050","c1792748171973":"#aa916e","cupboard":"#000000","c1792747948957":"#9c6f49","high":"#e5fffa","c1792747892573":"#d0b290","wardrobe":"#f3f3f1","cupboard2":"#19191a","c1792759494242":"#437050","c1792759499808":"#437050","plant1792770104539":"#b5654a","c1792770122388":"#3b3d40","c1792770133472":"#2b2d30","c1792770160204":"#e8e4dc","c1792773136944":"#364442"},"frame":"#fafaf8","fov":92,"hangings":[{"id":"hang1792772763496","pic":"yellowstone","x":96.1,"y":166.2,"z":540.5,"nx":0,"nz":-1},{"id":"hang1792772790896","pic":"cycling","x":570.3,"y":163.2,"z":0.5,"nx":0,"nz":1},{"id":"hang1792773039509","pic":"yellowstone","x":-246.6,"y":161.4,"z":540.5,"nx":0,"nz":-1},{"id":"hang1792773099377","pic":"cycling","x":-351.5,"y":171.3,"z":312.0,"nx":1,"nz":0}]};
+  const EXAMPLE = [{"id":"couch","name":"Zetel","w":173,"h":90,"color":1,"x":200,"y":334.5,"rot":90,"placed":true,"type":"couch"},{"id":"coffee","name":"Tafeltje","w":45,"h":55,"color":3,"x":207.5,"y":222.5,"rot":90,"placed":true,"type":"table"},{"id":"table","name":"Tafel","w":160,"h":80,"color":2,"x":435,"y":255,"rot":270,"placed":true,"type":"angled"},{"id":"cupboard","name":"Zwarte kast","w":80,"h":55,"color":4,"x":40,"y":513.5,"rot":0,"placed":true,"type":"legBox"},{"id":"high","name":"Keukenkastje","w":40,"h":53,"color":5,"x":597.5,"y":265,"rot":90,"placed":true,"type":"drawers"},{"id":"wardrobe","name":"Kast molly","w":127,"h":52,"color":6,"x":-38,"y":228.5,"rot":90,"placed":true,"type":"wardrobe"},{"id":"c1792747892573","name":"Bureau 200","w":80,"h":200,"color":7,"x":524,"y":55,"rot":90,"placed":true,"custom":true,"type":"desk"},{"id":"c1792747948957","name":"Jamban","w":60,"h":120,"color":8,"x":594,"y":344,"rot":0,"placed":true,"custom":true,"type":"shelves"},{"id":"chair1","name":"Chair 1","w":45,"h":50,"color":7,"x":465,"y":222.5,"rot":270,"placed":true,"custom":true,"type":"chair"},{"id":"chair2","name":"Chair 2","w":45,"h":50,"color":7,"x":465,"y":287.5,"rot":270,"placed":true,"custom":true,"type":"chair"},{"id":"chair3","name":"Chair 3","w":45,"h":50,"color":7,"x":410,"y":222.5,"rot":90,"placed":true,"custom":true,"type":"chair"},{"id":"chair4","name":"Chair 4","w":45,"h":50,"color":7,"x":410,"y":287.5,"rot":90,"placed":true,"custom":true,"type":"chair"},{"id":"c1792748171973","name":"Sordino","w":180,"h":40,"color":7,"x":20,"y":331,"rot":90,"placed":true,"custom":true,"type":"rounded"},{"id":"tv1792751975472","kind":"tv","name":"50″ TV","inches":50,"w":111,"h":25,"color":8,"x":12.5,"y":330.5,"rot":270,"placed":true,"custom":true,"screen":"off"},{"id":"hob1792755981802","kind":"hob","name":"Inductievuur","w":50,"h":40,"color":8,"x":595,"y":446,"rot":270,"placed":true,"custom":true,"type":"box"},{"id":"sink1792756114868","kind":"sink","name":"Kraan","w":113,"h":50,"color":8,"x":456.5,"y":516,"rot":180,"placed":true,"custom":true,"bowls":2,"drainer":"right","bowlW":[40,20],"drainW":40,"depth":50,"type":"box"},{"id":"bed","name":"Bed Michiel","type":"bed","w":160,"h":200,"color":2,"x":-252,"y":290,"rot":270,"placed":true,"custom":true},{"id":"cupboard2","name":"Kast Michiel","type":"wardrobe","w":117,"h":50,"color":4,"x":-37,"y":353.5,"rot":90,"placed":true,"custom":true},{"id":"c1792757779741","name":"Chair 4 2","w":45,"h":50,"color":7,"x":-292.5,"y":516,"rot":180,"placed":false,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792757786223","name":"Chair 4 2 2","w":45,"h":50,"color":7,"x":-217.5,"y":516,"rot":0,"placed":false,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792759494242","name":"Chair 3 2","w":45,"h":50,"color":7,"x":-287.5,"y":516,"rot":0,"placed":true,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792759499808","name":"Chair 3 2 2","w":45,"h":50,"color":7,"x":-217.5,"y":516,"rot":0,"placed":true,"custom":true,"type":"chair","kind":"chair"},{"id":"plant1792770104539","kind":"plant","name":"Klein plantje","w":18,"h":18,"color":8,"x":19,"y":259,"rot":0,"placed":true,"custom":true},{"id":"c1792770122388","name":"Large plant","type":"plantL","w":50,"h":50,"color":7,"x":25,"y":180,"rot":0,"placed":true,"custom":true},{"id":"c1792770133472","name":"Plant stand","type":"plantStand","w":40,"h":40,"color":7,"x":105,"y":521,"rot":0,"placed":true,"custom":true},{"id":"c1792770160204","name":"Plant","type":"plantM","w":35,"h":35,"color":7,"x":17.5,"y":523.5,"rot":270,"placed":true,"custom":true},{"id":"monitor1792771492549","kind":"monitor","name":"Computerscherm","inches":21,"w":46,"h":20,"color":8,"x":590,"y":30,"rot":180,"placed":true,"custom":true,"screen":"city"},{"id":"c1792773136944","name":"Bureaustoel","type":"officeChair","w":60,"h":60,"color":7,"x":575,"y":97,"rot":0,"placed":true,"custom":true,"kind":"chair"}];
+  const DEFAULTS_3D = {"room":{"ceiling":280,"windowTop":200,"door":200,"counter":90,"fridgeW":60,"fridgeTop":145,"ovenH":45,"wallBottom":180,"wallTop":240,"wallDepth":57,"person":182,"bulkBottom":220},"h":{"high":140,"c1792747948957":90,"coffee":50,"c1792748171973":44,"c1792759494242":90,"c1792759499808":90},"c":{"couch":"#9d4d0c","coffee":"#835a25","chair1":"#437050","chair2":"#437050","chair3":"#437050","chair4":"#437050","c1792748171973":"#aa916e","cupboard":"#000000","c1792747948957":"#9c6f49","high":"#e5fffa","c1792747892573":"#d0b290","wardrobe":"#f3f3f1","cupboard2":"#19191a","c1792759494242":"#437050","c1792759499808":"#437050","plant1792770104539":"#b5654a","c1792770122388":"#3b3d40","c1792770133472":"#2b2d30","c1792770160204":"#e8e4dc","c1792773136944":"#364442"},"frame":"#fafaf8","fov":92,"hangings":[{"id":"hang1792772763496","pic":"yellowstone","x":99.3,"y":173.2,"z":540.5,"nx":0,"nz":-1},{"id":"hang1792772790896","pic":"cycling","x":570.3,"y":163.2,"z":0.5,"nx":0,"nz":1},{"id":"hang1792773039509","pic":"yellowstone","x":-246.6,"y":161.4,"z":540.5,"nx":0,"nz":-1},{"id":"hang1792773099377","pic":"cycling","x":-351.5,"y":168.4,"z":286.3,"nx":1,"nz":0}],"curtains":{"on":true,"color":"#1f4115","open":{"livL":1,"step":1,"top":1,"bed":1}}};
   const CHAIRS_KEY = 'living-room-planner.chairs-added';
   // Four chairs, two along each long side of the table, facing it (45 × 50 cm is an estimate)
   function chairsFor(t){
@@ -585,7 +615,7 @@ details[open] summary { margin-bottom: 8px; }
   const edges = pl => pl.map((p,i) => [p, pl[(i+1)%pl.length]]);
   // A piece must lie completely inside one room
   function insideRoom(pl){
-    return ROOMS.some(room => {
+    return PLAN_ROOMS.some(room => {
       if (!pl.every(pt => pointIn(pt, room))) return false;
       for (const [a,b] of edges(pl)) for (const [c,d] of edges(room)) if (crosses(a,b,c,d)) return false;
       return true;
@@ -609,6 +639,10 @@ details[open] summary { margin-bottom: 8px; }
     for (const o of pieces) if (o !== p && o.placed && !canStack(p, o) && overlap(pl, poly(o,1))) bad.push('Overlaps the ' + o.name.toLowerCase());
     if (overlap(pl, rectPoly(DOOR))) warn.push('Stands in the entrance area');
     if (overlap(pl, rectPoly(BED_DOOR))) warn.push('Stands in front of the bedroom door');
+    for (const f of BATH_FIXTURES) if (overlap(pl, rectPoly(f.rect))) bad.push('Overlaps ' + f.name);
+    if (overlap(pl, rectPoly(BATH_DOOR))) warn.push('Stands in front of the bathroom door');
+    if (overlap(pl, rectPoly(TOILET_DOOR))) warn.push('Stands in front of the toilet door');
+    if (overlap(pl, rectPoly(STORAGE_DOOR))) warn.push('Stands in front of the storage room door');
     for (const z of WIN_ZONES) if (overlap(pl, rectPoly(z.rect))) warn.push('Is in the way when ' + z.name + ' opens');
     return bad.length ? { level:'bad', msgs:[...bad, ...warn] } : warn.length ? { level:'warn', msgs:warn } : { level:'ok', msgs:['Fits here'] };
   }
@@ -619,23 +653,54 @@ details[open] summary { margin-bottom: 8px; }
     const d = 'M' + ROOM.map(p => p.join(',')).join(' L') + ' Z';
     const db = 'M' + BEDROOM.map(p => p.join(',')).join(' L') + ' Z';
     const dbal = 'M' + BALCONY.map(p => p.join(',')).join(' L') + ' Z';
-    $('roomClipPath').setAttribute('d', d + ' ' + db + ' ' + dbal);
+    const dba = 'M' + BATHROOM.map(p => p.join(',')).join(' L') + ' Z', dco = 'M' + CORRIDOR.map(p => p.join(',')).join(' L') + ' Z', dto = 'M' + TOILET.map(p => p.join(',')).join(' L') + ' Z', dst = 'M' + STORAGE.map(p => p.join(',')).join(' L') + ' Z';
+    $('roomClipPath').setAttribute('d', d + ' ' + db + ' ' + dbal + ' ' + dba + ' ' + dco + ' ' + dto + ' ' + dst);
     let g = '';
     // Balcony floor and railing (drawn first, so the walls sit on top)
     g += `<path d="${dbal}" style="fill:var(--panel);stroke:none"></path>`;
     for (const [x1, y1, x2, y2] of RAILS) g += `<rect x="${x1}" y="${y1}" width="${x2-x1}" height="${y2-y1}" style="fill:var(--muted)"></rect>`;
     g += `<text class="note" x="-182" y="40" text-anchor="middle" style="font-size:15px;opacity:.7">balcony</text>`;
-    g += `<path class="wall" d="${db}"></path><path class="wall" d="${d}"></path>`;
-    g += `<path class="floor" d="${db}"></path><path class="floor" d="${d}"></path>`;
+    g += `<path class="wall" d="${dst}"></path><path class="wall" d="${dto}"></path><path class="wall" d="${dba}"></path><path class="wall" d="${dco}"></path><path class="wall" d="${db}"></path><path class="wall" d="${d}"></path>`;
+    g += `<path class="floor" d="${dst}"></path><path class="floor" d="${dto}"></path><path class="floor" d="${dba}"></path><path class="floor" d="${dco}"></path><path class="floor" d="${db}"></path><path class="floor" d="${d}"></path>`;
+    // The guessed rooms (bathroom, toilet, corridor, storage) are tinted grey to show they are estimates
+    for (const pth of [dba, dto, dco, dst]) g += `<path d="${pth}" style="fill:var(--muted);opacity:.14;stroke:none"></path>`;
+    // Bathroom door opening (in the wall between bathroom and corridor) and its swing area
+    g += `<rect x="-129" y="${BATH_DOOR[1]}" width="14" height="${BATH_DOOR[3] - BATH_DOOR[1]}" fill="var(--floor)"></rect>`;
+    g += `<rect x="${TOILET_DOOR[0]}" y="702" width="${TOILET_DOOR[2] - TOILET_DOOR[0]}" height="14" fill="var(--floor)"></rect>`;
+    g += `<rect x="423" y="${STORAGE_DOOR[1]}" width="14" height="${STORAGE_DOOR[3] - STORAGE_DOOR[1]}" fill="var(--floor)"></rect>`;
     // Kitchen and door side: no measured wall, so erase the thick wall there
     g += `<rect x="214" y="541" width="424" height="14" fill="var(--floor)"></rect>`;
     g += `<rect x="334" y="541" width="6" height="12" fill="var(--ink)"></rect>`;
     g += `<rect x="624" y="404" width="14" height="151" fill="var(--floor)"></rect>`;
     g += `<g id="gridG" clip-path="url(#roomClip)">`;
-    for (let x=-350; x<636; x+=50) g += `<line class="gridline" x1="${x}" y1="-82" x2="${x}" y2="541"></line>`;
-    for (let y=-50; y<541; y+=50) g += `<line class="gridline" x1="-364" y1="${y}" x2="636" y2="${y}"></line>`;
+    for (let x=-350; x<636; x+=50) g += `<line class="gridline" x1="${x}" y1="-82" x2="${x}" y2="893"></line>`;
+    for (let y=-50; y<893; y+=50) g += `<line class="gridline" x1="-364" y1="${y}" x2="636" y2="${y}"></line>`;
     g += `</g>`;
     g += `<polyline class="thin" points="350,541 624,541 624,404"></polyline>`;
+    // Bathroom: shower tiles, glass screen and shower head, the double sink and the towel radiator
+    const [shx1, shy1, shx2, shy2] = BATH_FIXTURES[1].rect;
+    g += `<rect x="${shx1}" y="${shy1}" width="${shx2-shx1}" height="${shy2-shy1}" fill="url(#hatch)" style="opacity:.55"></rect>`;
+    g += `<line x1="${SHOWER_GLASS[0]}" y1="${shy1}" x2="${SHOWER_GLASS[1]}" y2="${shy1}" style="stroke:var(--glass);stroke-width:4"></line>`;
+    g += `<circle cx="${shx1 + 6}" cy="${(shy1 + shy2)/2}" r="4" style="fill:var(--ink)"></circle>`;
+    g += `<text class="note" x="${(shx1 + shx2)/2}" y="${shy2 - 22}" text-anchor="middle">walk-in shower</text>`;
+    const [sx1, sy1, sx2, sy2] = BATH_FIXTURES[0].rect;
+    g += `<rect class="counter" x="${sx1}" y="${sy1}" width="${sx2-sx1}" height="${sy2-sy1}"></rect>`;
+    for (const yy of [sy1 + 25, sy2 - 25]) g += `<ellipse cx="${(sx1 + sx2)/2 + 2}" cy="${yy}" rx="13" ry="17" style="fill:var(--floor);stroke:var(--ink);stroke-width:1.2"></ellipse>`;
+    const [rx1, ry1, rx2, ry2] = BATH_FIXTURES[2].rect;
+    g += `<rect x="${rx1}" y="${ry1}" width="${rx2-rx1}" height="${ry2-ry1}" style="fill:var(--muted)"></rect>`;
+    g += `<rect class="doorzone" x="${BATH_DOOR[0]}" y="${BATH_DOOR[1]}" width="${BATH_DOOR[2]-BATH_DOOR[0]}" height="${BATH_DOOR[3]-BATH_DOOR[1]}"></rect>`;
+    g += `<text class="note" x="-235" y="610" text-anchor="middle" style="font-size:15px;opacity:.7">bathroom (estimated)</text>`;
+    // Measured: 87 cm from the top wall to the sink, and 174 cm from the front of the sink to the opposite wall
+    g += dimV(-288, 553, sy1, '87') + dimH(sx2, -128, 705, '174');
+    g += `<text class="note" x="200" y="690" text-anchor="middle" style="font-size:15px;opacity:.7">corridor (estimated)</text>`;
+    // Toilet: cistern against the bottom wall, bowl in front of it (you sit facing the door), door area in the corridor
+    const [tx1, ty1, tx2, ty2] = BATH_FIXTURES[3].rect;
+    g += `<rect x="${tx1}" y="${ty2 - 18}" width="${tx2 - tx1}" height="18" rx="3" style="fill:var(--floor);stroke:var(--ink);stroke-width:1.2"></rect>`;
+    g += `<ellipse cx="${(tx1 + tx2)/2}" cy="${ty1 + 22}" rx="${(tx2 - tx1)/2 - 2}" ry="22" style="fill:var(--floor);stroke:var(--ink);stroke-width:1.2"></ellipse>`;
+    g += `<rect class="doorzone" x="${TOILET_DOOR[0]}" y="${TOILET_DOOR[1]}" width="${TOILET_DOOR[2]-TOILET_DOOR[0]}" height="${TOILET_DOOR[3]-TOILET_DOOR[1]}"></rect>`;
+    g += `<text class="note" x="-56" y="790" text-anchor="middle" style="font-size:14px;opacity:.7">toilet (estimated)</text>`;
+    g += `<rect class="doorzone" x="${STORAGE_DOOR[0]}" y="${STORAGE_DOOR[1]}" width="${STORAGE_DOOR[2]-STORAGE_DOOR[0]}" height="${STORAGE_DOOR[3]-STORAGE_DOOR[1]}"></rect>`;
+    g += `<text class="note" x="530" y="632" text-anchor="middle" style="font-size:14px;opacity:.7">storage (estimated)</text>`;
     // Windows
     g += `<rect class="glass" x="49" y="127" width="194" height="12"></rect>`;
     g += `<rect class="glass" x="298" y="-12" width="188" height="12"></rect>`;
@@ -695,6 +760,8 @@ details[open] summary { margin-bottom: 8px; }
   const TYPES = {
     box:     { label:'Cupboard', menu:'Cupboard / block', w:80, h:40, H:85, note:'A solid block: cupboards, dressers, bookcases with doors.',
                icon:'<rect x="8" y="3" width="16" height="18" rx="1"/><path d="M16 3v18M13.5 12h0M18.5 12h0"/>' },
+    legBox:  { label:'Cupboard on legs', menu:'Cupboard on legs', w:80, h:55, H:85, note:'A closed cupboard standing on four short legs (about 10 cm) at the corners.',
+               icon:'<rect x="7" y="3" width="18" height="15" rx="1"/><path d="M16 3v15M9 18v4M23 18v4"/>' },
     shelves: { label:'Open shelves', menu:'Open shelves (3 layers)', w:120, h:40, H:75, note:'Open unit: a top, a shelf 30 cm lower and a black metal grid 39 cm below that, on black posts.',
                icon:'<path d="M5 5h22M8 12h16M8 19h16M6 5v16M26 5v16"/>' },
     angled:  { label:'Dining', menu:'Table (angled black legs)', w:160, h:80, H:75, note:'A table top on four black legs that slant outwards: they start about 30 cm in from each corner under the top and reach the floor about 10 cm from the corner. Chairs can slide under it.',
@@ -901,7 +968,7 @@ details[open] summary { margin-bottom: 8px; }
   function renderMeas(){
     const p = sel();
     if (!opts.meas || !p || !p.placed){ $('meas').innerHTML = ''; return; }
-    const segs = [...edges(ROOM), ...edges(BEDROOM), ...edges(BALCONY), ...[...COUNTER, PARTITION].flatMap(r => edges(rectPoly(r)))];
+    const segs = [...edges(ROOM), ...edges(BEDROOM), ...edges(BALCONY), ...edges(BATHROOM), ...edges(CORRIDOR), ...edges(TOILET), ...edges(STORAGE), ...[...COUNTER, PARTITION, ...BATH_FIXTURES.map(f => f.rect)].flatMap(r => edges(rectPoly(r)))];
     for (const o of pieces) if (o !== p && o.placed) segs.push(...edges(poly(o)));
     const [hx, hy] = halfExtents(p);
     const rays = [[p.x-hx, p.y, -1, 0],[p.x+hx, p.y, 1, 0],[p.x, p.y-hy, 0, -1],[p.x, p.y+hy, 0, 1]];
@@ -930,7 +997,7 @@ details[open] summary { margin-bottom: 8px; }
   }
 
   function renderStats(){
-    const floor = area(ROOM) + area(BEDROOM) - [...COUNTER, PARTITION].reduce((s,[x1,y1,x2,y2]) => s + (x2-x1)*(y2-y1), 0);
+    const floor = area(ROOM) + area(BEDROOM) + area(BATHROOM) + area(CORRIDOR) + area(TOILET) + area(STORAGE) - [...COUNTER, PARTITION, ...BATH_FIXTURES.map(f => f.rect)].reduce((s,[x1,y1,x2,y2]) => s + (x2-x1)*(y2-y1), 0);
     const used = pieces.filter(p => p.placed && !isOnTop(p)).reduce((s,p) => s + p.w*p.h, 0);
     $('stats').innerHTML =
       `<span><b>${(floor/1e4).toFixed(1)} m²</b>floor</span>`+
@@ -1285,21 +1352,41 @@ details[open] summary { margin-bottom: 8px; }
     selId = p.id; commit();
   });
 
+  // ---------- Layouts: furniture + 3D settings together ----------
+  // A snapshot of everything you set up: furniture, and the 3D settings (heights, colours, kitchen sizes,
+  // frames, view angle, wall pictures, curtains)
+  const settingsSnapshot = () => clone({ room:s3.room, h:s3.h, c:s3.c, frame:s3.frame, fov:s3.fov, hangings:s3.hangings, curtains:s3.curtains });
+  function applySettings(s){
+    s3.room = { ...ROOM_H, ...(s.room || {}) }; s3.h = s.h || {}; s3.c = s.c || {};
+    s3.frame = /^#[0-9a-f]{6}$/i.test(s.frame || '') ? s.frame : '#fafaf8';
+    s3.fov = s.fov >= 50 && s.fov <= 120 ? s.fov : 90;
+    s3.hangings = Array.isArray(s.hangings) ? s.hangings : [];
+    s3.curtains = { on:true, color:'#e8e2d6', open:{}, ...(s.curtains || {}) };
+    save3(); render3DPanel(); renderPicList(); renderCurtainCard(); rebuild3D();
+  }
+  const saveAs = name => { const saves = ls.get(SAVES_KEY) || {}; saves[name] = { pieces:clone(pieces), settings3d:settingsSnapshot() }; ls.set(SAVES_KEY, saves); };
+
   $('saveForm').addEventListener('submit', e => {
     e.preventDefault();
     const name = $('saveName').value.trim(); if (!name) return;
-    const saves = ls.get(SAVES_KEY) || {}; saves[name] = clone(pieces); ls.set(SAVES_KEY, saves);
-    e.target.reset(); render(); toast('Saved “' + name + '”');
+    saveAs(name);
+    e.target.reset(); render(); toast('Saved “' + name + '” (furniture and 3D settings)');
   });
   $('saved').addEventListener('click', e => {
     const saves = ls.get(SAVES_KEY) || {};
     const ld = e.target.closest('[data-load]')?.dataset.load, del = e.target.closest('[data-del]')?.dataset.del;
-    if (ld && saves[ld]){ remember(); pieces = clone(saves[ld]); selId = null; commit(); toast('Loaded “' + ld + '”'); }
+    if (ld && saves[ld]){
+      // Older saves hold only the furniture (a plain list); newer ones also the 3D settings
+      const sv = saves[ld], list = Array.isArray(sv) ? sv : sv.pieces;
+      remember(); pieces = clone(list); selId = null;
+      if (!Array.isArray(sv) && sv.settings3d) applySettings(sv.settings3d);
+      commit(); toast('Loaded “' + ld + '”');
+    }
     if (del){ delete saves[del]; ls.set(SAVES_KEY, saves); render(); toast('Deleted “' + del + '”'); }
   });
   $('copyCode').onclick = () => {
-    // The code carries the furniture plus the 3D settings (heights, colours, kitchen, frames)
-    const code = JSON.stringify({ pieces, settings3d:{ room:s3.room, h:s3.h, c:s3.c, frame:s3.frame, fov:s3.fov, hangings:s3.hangings, curtains:s3.curtains } });
+    // The code carries the furniture plus the 3D settings
+    const code = JSON.stringify({ pieces, settings3d:settingsSnapshot() });
     $('codeBox').value = code;
     const done = () => toast('Layout code copied');
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(code).then(done, () => { $('codeBox').select(); toast('Select the code above and copy it'); });
@@ -1311,32 +1398,17 @@ details[open] summary { margin-bottom: 8px; }
     if (!p){ toast('That code is not a valid layout. Paste the full code and try again.'); return; }
     remember(); pieces = p; selId = null;
     const s = !Array.isArray(data) && data.settings3d;
-    if (s){
-      s3.room = { ...ROOM_H, ...(s.room || {}) }; s3.h = s.h || {}; s3.c = s.c || {};
-      if (/^#[0-9a-f]{6}$/i.test(s.frame || '')) s3.frame = s.frame;
-      if (s.fov >= 50 && s.fov <= 120) s3.fov = s.fov;
-      if (Array.isArray(s.hangings)) s3.hangings = s.hangings;
-      if (s.curtains) s3.curtains = { on:true, color:'#e8e2d6', open:{}, ...s.curtains };
-      save3(); render3DPanel(); rebuild3D();
-    }
+    if (s) applySettings(s);
     commit(); toast(s ? 'Layout and 3D settings loaded' : 'Layout loaded');
   };
-  // Reset everything to the built-in default: furniture and the 3D settings (heights, colours, wall pictures).
-  // Asks for a second click first, because the 3D settings can't be undone.
-  let resetArmed = 0;
+  // Reset to the default layout that comes with this version of the page (the one on GitHub). Your current
+  // setup is saved first as "Before reset (date, time)", so you can always load it again.
   $('resetBtn').onclick = () => {
-    if (!resetArmed){
-      $('resetBtn').textContent = 'Click again to reset furniture, heights, colours and pictures';
-      resetArmed = setTimeout(() => { resetArmed = 0; $('resetBtn').textContent = 'Reset to default layout'; }, 4000);
-      return;
-    }
-    clearTimeout(resetArmed); resetArmed = 0; $('resetBtn').textContent = 'Reset to default layout';
+    const n = new Date(), stamp = n.toLocaleDateString('en-GB', { day:'numeric', month:'short' }) + ', ' + n.toTimeString().slice(0, 5);
+    saveAs('Before reset (' + stamp + ')');
     remember(); pieces = clone(EXAMPLE); selId = null;
-    const d = clone(DEFAULTS_3D);
-    Object.assign(s3, { room:{ ...ROOM_H, ...(d.room || {}) }, h:d.h || {}, c:d.c || {}, frame:d.frame || '#fafaf8', fov:d.fov || 90, hangings:d.hangings || [], curtains:{ on:true, color:'#e8e2d6', open:{}, ...(d.curtains || {}) } });
-    renderCurtainCard();
-    save3(); render3DPanel(); renderPicList(); rebuild3D();
-    commit(); toast('Default layout and 3D settings restored');
+    applySettings(clone(DEFAULTS_3D));
+    commit(); toast('Default layout loaded. Your previous setup is saved as “Before reset (' + stamp + ')”');
   };
 
   document.addEventListener('keydown', e => {
@@ -1354,13 +1426,23 @@ details[open] summary { margin-bottom: 8px; }
   // ---------- 3D viewer (heights live only here) ----------
   const H3_KEY = 'living-room-planner.3d.v1';
   const ROOM_H = { ceiling:260, windowTop:200, door:200, counter:90,
-    fridgeW:60, fridgeTop:145, ovenH:45, wallBottom:145, wallTop:230, wallDepth:35, person:182, bulkBottom:220 };
+    fridgeW:60, fridgeTop:145, ovenH:45, wallBottom:180, wallTop:240, wallDepth:57, person:182, bulkBottom:220 };
   const DEFAULT_H = { couch:85, coffee:45, table:75, cupboard:85, high:180, wardrobe:200 };
   const s3 = (() => { const v = ls.get(H3_KEY) || clone(DEFAULTS_3D); if (v.room && v.room.door === 210) v.room.door = 200; return { room:{ ...ROOM_H, ...(v.room || {}) }, h:v.h || {}, c:v.c || {}, s:v.s || {}, frame:/^#[0-9a-f]{6}$/i.test(v.frame || '') && v.frame !== '#3a3d40' ? v.frame : '#fafaf8', fov:(v.fov >= 50 && v.fov <= 120) ? v.fov : 90, hangings:Array.isArray(v.hangings) ? v.hangings : [], curtains:{ on:true, color:'#e8e2d6', open:{}, ...(v.curtains || {}) } }; })();
   // Horizontal view angle (what the slider shows) converted to the camera's vertical angle
   const walkFov = () => 2 * Math.atan(Math.tan(s3.fov * Math.PI/360) / (T3 ? T3.camera.aspect : 1.5)) * 180/Math.PI;
   const colorOf = p => { const c = s3.c[p.id] || cssVar('--f' + p.color); return /^#[0-9a-f]{6}$/i.test(c) ? c : '#999999'; };
   const save3 = () => ls.set(H3_KEY, s3);
+  // One-time: real wall cupboard heights (bottom 180 cm, top 240 cm) instead of the earlier estimates
+  if (!ls.get('living-room-planner.wallcup-v1')){
+    if (s3.room.wallBottom === 145) s3.room.wallBottom = 180;
+    if (s3.room.wallTop === 230) s3.room.wallTop = 240;
+    save3(); ls.set('living-room-planner.wallcup-v1', true);
+  }
+  if (!ls.get('living-room-planner.walldepth-v1')){
+    if (s3.room.wallDepth === 35){ s3.room.wallDepth = 57; save3(); }
+    ls.set('living-room-planner.walldepth-v1', true);
+  }
   const SHAPES = Object.fromEntries(Object.entries(TYPES).filter(([, t]) => !t.onTop).map(([k, t]) => [k, t.menu || t.label]));
   const autoShape = p => isChair(p) || /chair|stoel/i.test(p.name) ? 'chair'
     : p.id === 'couch' || /couch|sofa|zetel/i.test(p.name) ? 'couch'
@@ -1375,7 +1457,7 @@ details[open] summary { margin-bottom: 8px; }
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#999999';
 
   let mode = '2d', view = 'orbit', lowWalls = false, T3 = null;
-  const doorOpen = [false, false], doorAngles = [0, 0];
+  const doorOpen = [false, false, false, false, false], doorAngles = [0, 0, 0, 0, 0];
   // Opening windows: 0 = living room 194, 1 = living room 188, 2 = bedroom 190 (the right pane of each)
   const winOpen = [false, false, false], winAngles = [0, 0, 0];
   let walk = { x:274, z:500, yaw:0, pitch:-0.05 };
@@ -1418,7 +1500,7 @@ details[open] summary { margin-bottom: 8px; }
   // A copy of the plan is laid over the 3D view; the camera starts straight above the floor with a
   // narrow lens, framed exactly like the plan, so the two line up. The plan fades out, then the
   // camera tilts and zooms into the normal 3D overview.
-  const PLAN_VB = { x:-420, y:-140, w:1116, h:750 };
+  const PLAN_VB = { x:-420, y:-140, w:1116, h:1065 };
   function showIntroOverlay(){
     removeIntroOverlay();
     const ov = document.createElement('div');
@@ -1628,7 +1710,7 @@ details[open] summary { margin-bottom: 8px; }
       if (hung){ openHangPanel(hung); return; }
       const tvHit = byId(pieceAt(hit));
       if (tvHit && isTV(tvHit)){ openTvPanel(tvHit); return; }
-      // Overview: clicking the floor puts you there, standing and facing the middle of the room; clicking
+      // Overview: clicking the floor puts you there, standing and looking the same way as the camera; clicking
       // a chair or the couch puts you on it, seated. Doors and windows still just open and close.
       if (view === 'orbit' && doorAt(hit) < 0 && windowAt(hit) < 0){
         const seat = seatAt(hit), onFloor = hit && T3.floors.includes(hit.object);
@@ -1643,8 +1725,9 @@ details[open] summary { margin-bottom: 8px; }
         if (onFloor){
           const x = hit.point.x*100, z = hit.point.z*100;
           if (!canStand(x, z)){ toast('That spot is too close to a wall or the kitchen. Pick a spot a bit further in.'); return; }
-          const dx = 312 - x, dz = 300 - z;
-          walk = { x, z, yaw:Math.atan2(-dx, -dz), pitch:-0.08 };
+          // Keep looking the same way the overview camera was looking (horizontally), with a level gaze
+          const dir = new THREE.Vector3(); T3.camera.getWorldDirection(dir);
+          walk = { x, z, yaw:Math.atan2(-dir.x, -dir.z), pitch:0 };
           view = 'walk'; applyView(true);
           return;
         }
@@ -1704,9 +1787,11 @@ details[open] summary { margin-bottom: 8px; }
     const G = new THREE.Group();
     scene.background = new THREE.Color(cssVar('--paper'));
     // Colours are picked as normal (sRGB) colours and converted to linear light for rendering
+    T3.roomMats = [];
     const mat = (c, extra) => {
       const m = new THREE.MeshStandardMaterial({ color:lin(c), roughness:0.85, metalness:0, envMapIntensity:0.6, ...(extra || {}) });
       if (extra && extra.emissive) m.emissive = extra.emissive.clone().convertSRGBToLinear();
+      m.userData.env = m.envMapIntensity; T3.roomMats.push(m);
       return m;
     };
     let ROUND = 0;
@@ -1804,6 +1889,70 @@ details[open] summary { margin-bottom: 8px; }
           G.add(g); T3.windows[o.id] = g;
         } else slab(a, b, F, H - F, glassM, 2, 0);
       }
+    }
+
+    // ---- Estimated rooms (bathroom, toilet, corridor, storage), all in greys: floors, walls with door openings,
+    // and the bathroom fixtures. Walls already built for the bedroom and living room are not repeated.
+    {
+      const greyFloor = mat('#9a9a9a', { roughness:0.85, side:THREE.DoubleSide }), greyWall = mat('#d4d4d4');
+      for (const room of ESTIMATED){
+        const shape = new THREE.Shape(room.map(([x, y]) => new THREE.Vector2(x/100, y/100)));
+        const fl = new THREE.Mesh(new THREE.ShapeGeometry(shape), greyFloor);
+        fl.rotation.x = Math.PI/2; fl.receiveShadow = true; G.add(fl); T3.floors.push(fl);
+        if (walking){
+          const ce = new THREE.Mesh(new THREE.ShapeGeometry(shape), mat('#e6e6e6', { side:THREE.DoubleSide }));
+          ce.rotation.x = Math.PI/2; ce.position.y = R.ceiling/100; ce.castShadow = true; G.add(ce);
+        }
+      }
+      // [x1, z1, x2, z2, along, openings [from, to] along the wall]
+      const dT = Math.min(doorTop, wallH);
+      const segs = [
+        [-364, 553, -352, 905, 'z', []],                                  // bathroom left wall
+        [-364, 893, 16, 905, 'x', []],                                    // bathroom + toilet bottom wall
+        [-128, 553, -116, 893, 'z', [[BATH_DOOR[1], BATH_DOOR[3]]]],      // bathroom | corridor + toilet
+        [-116, 703, 16, 715, 'x', [[TOILET_DOOR[0], TOILET_DOOR[2]]]],    // toilet | corridor
+        [4, 703, 16, 905, 'z', []],                                       // toilet | wide corridor
+        [4, 793, 436, 805, 'x', []],                                      // corridor bottom wall
+        [424, 553, 436, 805, 'z', [[STORAGE_DOOR[1], STORAGE_DOOR[3]]]],  // corridor end | storage
+        [424, 703, 636, 715, 'x', []],                                    // storage bottom wall
+        [624, 553, 636, 715, 'z', []],                                    // storage right wall
+      ];
+      for (const [x1, z1, x2, z2, along, opens] of segs){
+        const lo = along === 'x' ? x1 : z1, hi = along === 'x' ? x2 : z2;
+        const box = (a, b, y0, y1) => {
+          if (b <= a || y1 <= y0) return;
+          const w = along === 'x' ? part(G, greyWall, (a+b)/2, y0, (z1+z2)/2, b-a, y1-y0, z2-z1) : part(G, greyWall, (x1+x2)/2, y0, (a+b)/2, x2-x1, y1-y0, b-a);
+          if (w) w.userData.wall = true;
+        };
+        let cur = lo;
+        for (const [a, b] of opens){ box(cur, a, 0, wallH); box(a, b, dT, wallH); cur = b; }
+        box(cur, hi, 0, wallH);
+      }
+      // Bathroom fixtures
+      const [sx1, sy1, sx2, sy2] = BATH_FIXTURES[0].rect;
+      part(G, mat('#e8e8e8'), (sx1+sx2)/2, 0, (sy1+sy2)/2, sx2-sx1, 82, sy2-sy1);                 // vanity
+      part(G, mat('#f4f4f4', { roughness:0.3 }), (sx1+sx2)/2, 82, (sy1+sy2)/2, sx2-sx1 + 1, 3, sy2-sy1 + 1);  // top
+      for (const zz of [sy1 + 25, sy2 - 25]){
+        part(G, mat('#7a7a7a', { roughness:0.25 }), (sx1+sx2)/2 + 2, 84.5, zz, 30, 0.6, 36, false);   // basin
+        part(G, mat('#c8c8c8', { roughness:0.15, metalness:0.85 }), sx1 + 6, 85, zz, 3, 18, 3);        // tap
+      }
+      part(G, mat('#e0e0e0'), sx1 + 8, 115, (sy1+sy2)/2, 16, 70, sy2-sy1);                        // mirror cupboard
+      part(G, mat('#d8d8d8', { roughness:0.04, metalness:0.9 }), sx1 + 16.3, 118, (sy1+sy2)/2, 0.4, 64, sy2-sy1 - 4, false); // mirror doors
+      const [shx1, shy1, shx2, shy2] = BATH_FIXTURES[1].rect;
+      part(G, mat('#8a8a8a', { roughness:0.6 }), (shx1+shx2)/2, 0, (shy1+shy2)/2, shx2-shx1, 1, shy2-shy1, false);   // shower floor
+      part(G, mat('#ffffff', { transparent:true, opacity:0.25, roughness:0.05 }), (SHOWER_GLASS[0]+SHOWER_GLASS[1])/2, 1, shy1, SHOWER_GLASS[1]-SHOWER_GLASS[0], 199, 1, false); // glass
+      part(G, mat('#b5b5b5', { roughness:0.2, metalness:0.8 }), SHOWER_GLASS[1], 1, shy1, 2, 199, 2);                // glass edge profile
+      const chromeG = mat('#cfcfcf', { roughness:0.15, metalness:0.9 });
+      part(G, chromeG, shx1 + 2, 90, (shy1+shy2)/2, 3, 110, 3);                                    // shower rail
+      part(G, chromeG, shx1 + 10, 200, (shy1+shy2)/2, 18, 2, 20);                                  // shower head
+      const [rx1, ry1, rx2, ry2] = BATH_FIXTURES[2].rect;
+      for (let y = 30; y <= 150; y += 8) part(G, mat('#efefef', { roughness:0.4 }), (rx1+rx2)/2, y, (ry1+ry2)/2, rx2-rx1, 2.5, ry2-ry1);   // towel radiator bars
+      for (const zz of [ry1, ry2]) part(G, mat('#efefef'), (rx1+rx2)/2, 28, zz, 4, 126, 4);
+      const [tx1, ty1, tx2, ty2] = BATH_FIXTURES[3].rect, tcx = (tx1+tx2)/2;
+      part(G, mat('#f2f2f2', { roughness:0.25 }), tcx, 0, ty2 - 9, tx2-tx1, 80, 18);              // cistern
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.13, 0.4, 24), mat('#f2f2f2', { roughness:0.25 }));
+      bowl.scale.set(1, 1, 1.25); bowl.position.set(tcx/100, 0.2, (ty1 + 24)/100); bowl.castShadow = bowl.receiveShadow = true; G.add(bowl);
+      part(G, mat('#e4e4e4', { roughness:0.3 }), tcx, 40, ty1 + 22, 36, 2, 44);                  // seat
     }
 
     // Pendant lamps (decorative only, shown when walking around, where there is a ceiling)
@@ -1938,13 +2087,26 @@ details[open] summary { margin-bottom: 8px; }
     // Doors: entrance (hinged next to the kitchen wall) and bedroom (hinged on the same side);
     // both open inward, swinging 90° towards the hinge side
     T3.doors = [];
-    // [index, hinge x (m), leaf width (cm)]: the entrance door is 120 cm, the bedroom door 98 cm
-    for (const [i, hx, lw] of [[0, (DOOR[2] - 2)/100, DOOR[2] - DOOR[0] - 3], [1, (BED_DOOR[2] - 2)/100, BED_DOOR[2] - BED_DOOR[0] - 3]]){
-      const door = new THREE.Group();
-      door.position.set(hx, 0, 5.44);
-      door.rotation.y = doorAngles[i];
+    // Each door: hinge position (cm), the turn of the closed leaf (it extends along its local -x from the hinge),
+    // and the leaf width. They open by turning a quarter turn (dir -1 or +1).
+    //  0 entrance (120 cm) and 1 bedroom (98 cm): in the bottom walls, opening into their rooms
+    //  2 bathroom (110 cm, estimated): in the bathroom's right wall, hinge at the top end, opening into the bathroom
+    //  3 toilet (90 cm, estimated): in the toilet's top wall, hinge at the left end, opening into the corridor
+    const DOOR_LEAVES = [
+      { x:DOOR[2] - 2, z:544, base:0, lw:DOOR[2] - DOOR[0] - 3 },
+      { x:BED_DOOR[2] - 2, z:544, base:0, lw:BED_DOOR[2] - BED_DOOR[0] - 3 },
+      { x:-122, z:BATH_DOOR[1] + 2, base:Math.PI/2, lw:BATH_DOOR[3] - BATH_DOOR[1] - 3, grey:true },
+      { x:TOILET_DOOR[0] + 2, z:709, base:Math.PI, lw:TOILET_DOOR[2] - TOILET_DOOR[0] - 3, grey:true, dir:1 },
+      //  4 storage room (120 cm, estimated): in its left wall, hinge at the bottom end, opening into the corridor
+      { x:430, z:STORAGE_DOOR[3] - 2, base:-Math.PI/2, lw:STORAGE_DOOR[3] - STORAGE_DOOR[1] - 3, grey:true, dir:1 },
+    ];
+    DOOR_LEAVES.forEach((D, i) => {
+      const lw = D.lw, door = new THREE.Group();
+      door.position.set(D.x/100, 0, D.z/100);
+      door.userData.base = D.base; door.userData.dir = D.dir || -1;
+      door.rotation.y = D.base + doorAngles[i];
       door.userData.door = i;
-      const dh = Math.min(doorTop, wallH) - 1, leafM = mat('#dcd7cc'), knobM = mat('#3a3d40', { roughness:0.35, metalness:0.6 });
+      const dh = Math.min(doorTop, wallH) - 1, leafM = mat(D.grey ? '#d2d2d2' : '#dcd7cc'), knobM = mat(D.grey ? '#4a4a4a' : '#3a3d40', { roughness:0.35, metalness:0.6 });
       part(door, leafM, -lw/2 - 1, 0, 0, lw, dh, 4);
       for (const side of [-1, 1]){
         part(door, knobM, -lw + 5, 102, side*3.5, 3, 3, 3);
@@ -1952,7 +2114,13 @@ details[open] summary { margin-bottom: 8px; }
       }
       G.add(door);
       T3.doors.push(door);
-    }
+    });
+
+    // Thresholds: a strip of floor in every doorway, so you can't look through the gap in the wall
+    for (const [x1, z1, x2, z2] of [
+      [DOOR[0], 541, DOOR[2], 553], [BED_DOOR[0], 541, BED_DOOR[2], 553],
+      [-128, BATH_DOOR[1], -116, BATH_DOOR[3]], [TOILET_DOOR[0], 703, TOILET_DOOR[2], 715], [424, STORAGE_DOOR[1], 436, STORAGE_DOOR[3]],
+    ]) part(G, mat('#b9b2a6', { roughness:0.7 }), (x1+x2)/2, -2, (z1+z2)/2, x2-x1, 2.1, z2-z1);
 
     // Kitchen counter
     // Light cabinets with a warm oak worktop
@@ -2011,6 +2179,15 @@ details[open] summary { margin-bottom: 8px; }
     };
     run(COUNTER[0][0] + R.fridgeW, 624, 'x', 541 - wd, 541);
     run(404, 541 - wd, 'z', 624 - wd, 624);
+    // Above the wall cupboards and the tall column there is just wall up to the ceiling (a closed box)
+    if (wallH > kTop){
+      const ox = COUNTER[0][0];
+      const above = (x1, z1, x2, z2) => { const b = part(G, wallM, (x1+x2)/2, kTop, (z1+z2)/2, x2-x1, wallH - kTop, z2-z1); if (b) b.userData.wall = true; };
+      ROUND = 0;
+      above(ox, 541 - wd, 624, 541);
+      above(624 - wd, 404, 624, 541 - wd);
+      ROUND = 0.8;
+    }
 
     // ---- Plants: a pot (lathe) with soil, and stems with individual leaves, generated from a seed so each
     // plant always looks the same. Styles: bushy (small), broad (medium), tall (large), trailing (stand).
@@ -2095,7 +2272,7 @@ details[open] summary { margin-bottom: 8px; }
         const b = new THREE.Mesh(new THREE.PlaneGeometry(p.w/75, p.h/75), blobMat(solid ? 0.5 : 0.28));
         b.rotation.x = -Math.PI/2; b.position.y = 0.004; b.renderOrder = 1; b.userData.noPT = true; g.add(b);
       }
-      const m = mat(colorOf(p));
+      const m = mat(isEstimated(p.x, p.y) ? greyOf(colorOf(p)) : colorOf(p));
       if (status(p).level === 'bad'){ m.emissive = new THREE.Color(0xcc2222); m.emissiveIntensity = 0.35; }
       const H = heightOf(p), w = p.w, d = p.h, kind = shapeOf(p);
       // A TV turns its screen towards the open room: whichever side has more space in front of it
@@ -2343,6 +2520,14 @@ details[open] summary { margin-bottom: 8px; }
           const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.011, feet/100, 16), footM);
           foot.position.set((along ? la : lc)/100, feet/200, (along ? lc : la)/100);
           foot.castShadow = foot.receiveShadow = true; g.add(foot);
+        }
+      } else if (kind === 'legBox'){
+        // Cupboard body from about 10 cm up, on four legs at the corners
+        const legH = Math.min(10, H*0.3), inset = 3;
+        part(g, m, 0, legH, 0, w, H - legH, d);
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]){
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.012, legH/100, 14), m);
+          leg.position.set(sx*(w/2 - inset)/100, legH/200, sz*(d/2 - inset)/100); leg.castShadow = leg.receiveShadow = true; g.add(leg);
         }
       } else if (kind === 'drawers'){
         // Closed cabinet with 3 solid drawer fronts on the front (local +z), each with a round knob;
@@ -2594,12 +2779,25 @@ details[open] summary { margin-bottom: 8px; }
     { id:'top',  room:'Living room', along:'x', a:298, b:624, f:0 },
   ];
   const curOpen = id => s3.curtains.open[id] ?? 1;
+  // Windows behind the curtains, in the same order as the window light panels: [curtain wall, window from, to]
+  const WINDOW_CURTAINS = [['livL', 49, 243], ['step', 0, 90], ['top', 298, 486], ['bed', BED_WIN[0], BED_WIN[1]]];
+  // Fraction (0–1) of a window covered by its curtains, using the same panel widths as the 3D curtains
+  function curtainCover(id, wa, wb){
+    if (!s3.curtains.on) return 0;
+    const W = CURTAIN_WALLS.find(w => w.id === id), L = W.b - W.a, two = L > 200, open = curOpen(id);
+    const full = two ? L/2 + 3 : L, width = Math.max(14, full*(1 - 0.86*open));
+    const panels = two ? [[W.a, W.a + width], [W.b - width, W.b]] : W.gather === 'b' ? [[W.b - width, W.b]] : [[W.a, W.a + width]];
+    let covered = 0;
+    for (const [p0, p1] of panels) covered += Math.max(0, Math.min(p1, wb) - Math.max(p0, wa));
+    return Math.min(1, covered/(wb - wa));
+  }
   function buildCurtains(G, wallH, mat){
     const C = s3.room.ceiling, railY = C - 4, off = 10;
     const railM = mat('#e9e9e6', { roughness:0.4, metalness:0.2 });
     // Fabric: matte, lit from both sides, with a soft glow of its own colour (real curtains let some light
     // through and catch light bouncing around the room, so their folds never turn black)
     const fabric = mat(s3.curtains.color, { roughness:0.95, side:THREE.DoubleSide, emissive:new THREE.Color(s3.curtains.color), emissiveIntensity:0.22 });
+    T3.curtainMat = fabric;
     const showCurtains = s3.curtains.on && wallH >= C;
     for (const W of CURTAIN_WALLS){
       const L = W.b - W.a;
@@ -2916,6 +3114,11 @@ details[open] summary { margin-bottom: 8px; }
     if (T3.envRT) T3.envRT.dispose();
     T3.envRT = rt; T3.scene.environment = rt.texture;
   }
+  // The same colour as a grey of equal brightness (for furniture in the estimated rooms)
+  function greyOf(hex){
+    const c = new THREE.Color(hex), l = Math.round((0.299*c.r + 0.587*c.g + 0.114*c.b)*255);
+    return '#' + [l, l, l].map(v => v.toString(16).padStart(2, '0')).join('');
+  }
   // sRGB colour (as written in the code or picked by you) to the linear colour the renderer works in
   function lin(c){ return new THREE.Color(c).convertSRGBToLinear(); }
   const WEATHER = {
@@ -2936,9 +3139,16 @@ details[open] summary { margin-bottom: 8px; }
     T3.sun.intensity = 0.95 * W.sun * up;
     T3.sun.color = mix('#ffad6b', '#fff4e0', smooth(2, 25, alt)).convertSRGBToLinear();
     T3.sun.castShadow = env.wx === 'sunny' && up > 0.01;
-    T3.hemi.intensity = 0.03 + W.sky*day;
+    // Closed curtains keep daylight out: how much of the window light gets in, per window and overall
+    const curtainLight = WINDOW_CURTAINS.map(([id, a, b]) => 1 - 0.95*curtainCover(id, a, b));   // closed curtains let ~5% through
+    const allLight = WINDOW_CURTAINS.reduce((t, [, a, b], i) => t + (b - a)*curtainLight[i], 0) / WINDOW_CURTAINS.reduce((t, [, a, b]) => t + (b - a), 0);
+    const dim = 0.06 + 0.94*allLight;
+    T3.hemi.intensity = (0.03 + W.sky*day) * dim;
     T3.hemi.color = mix('#24334a', W.skyCol, day).convertSRGBToLinear();
-    T3.amb.intensity = 0.02 + W.amb*day;
+    T3.amb.intensity = (0.02 + W.amb*day) * dim;
+    (T3.roomMats || []).forEach(m => m.envMapIntensity = m.userData.env * dim);
+    // The curtain fabric glows faintly with daylight coming through it, and not at all at night
+    if (T3.curtainMat) T3.curtainMat.emissiveIntensity = 0.22*day;
     let bg = mix('#0b1220', W.bg, day);
     if (env.wx === 'sunny') bg.lerp(new THREE.Color('#f0a46a'), 0.55 * Math.max(0, 1 - Math.abs(alt - 1)/7));
     T3.scene.background = bg;
@@ -2950,13 +3160,13 @@ details[open] summary { margin-bottom: 8px; }
     T3.lamps.forEach(l => l.intensity = l.userData.k * lampsOn);
     // The lamps themselves glow when they are on
     (T3.glow || []).forEach(([m, base, on]) => m.emissiveIntensity = base + on*lampsOn);
-    (T3.ceilMats || []).forEach(m => m.emissiveIntensity = 0.32*day*(W.sky + 0.3) + 0.08*lampsOn);
+    (T3.ceilMats || []).forEach(m => m.emissiveIntensity = 0.32*day*(W.sky + 0.3)*dim + 0.08*lampsOn);
     T3.rain.visible = env.wx === 'rainy';
     // Window light: stronger on the sunny side when the sun is out (sunlight bouncing off the balcony)
     const winH = Math.min(s3.room.windowTop, s3.room.ceiling) - 12, sunSide = Math.abs(((az - FACING + 540) % 360) - 180) < 90;
-    T3.winLights.forEach(l => {
+    T3.winLights.forEach((l, i) => {
       l.height = winH/100; l.position.y = (6 + winH/2)/100;
-      l.intensity = W.win * day * (1 + (sunSide ? 0.8*up*W.sun : 0));
+      l.intensity = W.win * day * (1 + (sunSide ? 0.8*up*W.sun : 0)) * curtainLight[i];
       l.color = lin(W.skyCol).lerp(lin('#ffffff'), 0.5);
     });
     updateEnvMap(day, up, W, bg);
@@ -3175,7 +3385,7 @@ details[open] summary { margin-bottom: 8px; }
   $('v3reset').onclick = resetCamera;
 
   function canStand(x, z){
-    if (!ROOMS.some(room => [[x,z],[x-15,z],[x+15,z],[x,z-15],[x,z+15]].every(pt => pointIn(pt, room)))) return false;
+    if (!WALK_ROOMS.some(room => [[x,z],[x-15,z],[x+15,z],[x,z-15],[x,z+15]].every(pt => pointIn(pt, room)))) return false;
     return ![...COUNTER, PARTITION].some(([x1,y1,x2,y2]) => x > x1-15 && x < x2+15 && z > y1-15 && z < y2+15);
   }
   // Sit down: walk to the seat, turn to face the way it faces, and lower the eyes to seated height
@@ -3260,10 +3470,10 @@ details[open] summary { margin-bottom: 8px; }
         }
       });
       (T3.doors || []).forEach((door, i) => {
-        const target = doorOpen[i] ? -Math.PI/2 : 0;
+        const target = doorOpen[i] ? door.userData.dir*Math.PI/2 : 0;
         if (Math.abs(target - doorAngles[i]) > 0.001){
           doorAngles[i] += (target - doorAngles[i]) * Math.min(1, dt * 5);
-          door.rotation.y = doorAngles[i];
+          door.rotation.y = door.userData.base + doorAngles[i];
         }
       });
       T3.renderer.render(T3.scene, T3.camera);
@@ -3302,7 +3512,7 @@ details[open] summary { margin-bottom: 8px; }
       : `<li class="empty">No furniture in the room yet.</li>`;
   }
   const ROOM_LIMITS = { ceiling:[200,600], windowTop:[50,600], door:[150,600], counter:[50,150],
-    fridgeW:[40,120], fridgeTop:[60,220], ovenH:[20,80], wallBottom:[100,260], wallTop:[120,600], wallDepth:[20,60], person:[100,230], bulkBottom:[150,600] };
+    fridgeW:[40,120], fridgeTop:[60,220], ovenH:[20,80], wallBottom:[100,260], wallTop:[120,600], wallDepth:[20,70], person:[100,230], bulkBottom:[150,600] };
   $('main3d').addEventListener('input', e => {
     if (e.target.id === 'h3frame'){ s3.frame = e.target.value; $('h3frameHex').value = s3.frame; save3(); rebuild3D(); return; }
     // Typed or pasted colour codes: #rrggbb or #rgb, with or without the #
@@ -3331,6 +3541,13 @@ details[open] summary { margin-bottom: 8px; }
   });
   $('main3d').addEventListener('focusout', e => { if (e.target.dataset.room || e.target.dataset.hid || e.target.dataset.hex || e.target.dataset.hexframe) setTimeout(render3DPanel, 0); });
   $('h3resetC').onclick = () => { s3.c = {}; save3(); render3DPanel(); rebuild3D(); toast('Colours reset to the plan colours'); };
+
+  // One-time: the Zwarte kast stands on four 10 cm legs
+  if (!ls.get('living-room-planner.legbox-v1')){
+    const k = pieces.find(p => p.id === 'cupboard');
+    if (k && k.type === 'box'){ k.type = 'legBox'; ls.set(STORE_KEY, pieces); }
+    ls.set('living-room-planner.legbox-v1', true);
+  }
 
   // One-time: the dining table gets its slanted black legs
   if (!ls.get('living-room-planner.angled-v1')){
