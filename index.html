@@ -222,6 +222,8 @@ details[open] summary { margin-bottom: 8px; }
 .tvpanel[hidden] { display: none; }
 /* The picture's little panel floats just above the picture itself */
 #hangPanel { min-width: 0; padding: 6px 8px; transform: translate(-50%, calc(-100% - 10px)); }
+/* The TV's controls float just above the TV */
+#tvPanel { transform: translate(-50%, calc(-100% - 12px)); }
 #hangPanel .head { font-size: 13px; gap: 10px; }
 .tvpanel .head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .tvpanel .head span { flex: 1; }
@@ -2545,6 +2547,18 @@ details[open] summary { margin-bottom: 8px; }
     $('tvSizeIn').value = p.inches || 50; showTvSize(p.inches || 50);
     $('tvPics').querySelectorAll('[data-pic]').forEach(b => b.setAttribute('aria-pressed', b.dataset.pic === (p.screen || 'off')));
     $('tvPanel').hidden = false;
+    placeTvPanel();
+  }
+  // Keep the TV controls just above the top of the screen (called every frame while open)
+  function placeTvPanel(){
+    const p = byId(tvSel), el = $('tvPanel');
+    if (!p || !T3){ el.hidden = true; return; }
+    const sup = tvSupport(p), base = !sup ? 0 : sup.counter ? s3.room.counter : heightOf(sup);
+    const top = base + (p.kind === 'monitor' ? 10 : 7) + tvSize(p.inches || 50).screenH + 4;
+    const v = new THREE.Vector3(p.x/100, top/100, p.y/100).project(T3.camera), sz = T3.renderer.getSize(new THREE.Vector2());
+    el.style.visibility = v.z > 1 ? 'hidden' : 'visible';
+    el.style.left = Math.max(150, Math.min(sz.x - 150, (v.x + 1)/2*sz.x)) + 'px';
+    el.style.top = Math.max(130, (1 - v.y)/2*sz.y) + 'px';
   }
   const closeTvPanel = () => { $('tvPanel').hidden = true; tvSel = null; };
   const showTvSize = v => $('tvSizeOut').textContent = `${v}″ · ${tvSize(v).w} cm wide`;
@@ -3056,6 +3070,7 @@ details[open] summary { margin-bottom: 8px; }
       if (T3.anim) stepIntro(dt); else if (view === 'walk') walkStep(dt); else T3.controls.update();
       cutTrees();
       if (!$('hangPanel').hidden) placeHangPanel();
+      if (!$('tvPanel').hidden) placeTvPanel();
       if (env.play){
         env.min = (env.min + dt*60) % 1440;
         $('timeRange').value = Math.round(env.min/5)*5;
