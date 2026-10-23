@@ -1850,11 +1850,25 @@ details[open] summary { margin-bottom: 8px; }
         part(g, chromeM, tx, base + 24, tz + 18, 2.6, 4, 2.6);
         part(g, chromeM, tx + 3.5, base + 19, tz, 7, 1.4, 1.8);   // lever on the side of the tap
       } else if (kind === 'tv'){
-        // Screen on a small stand, on top of whatever it stands on
-        const tvM = mat('#16181a', { roughness:0.3, metalness:0.2 });
-        part(g, tvM, 0, base, 0, Math.min(w*0.45, 60), 2.5, Math.min(22, d - 2));
-        part(g, tvM, 0, base + 2.5, -3, 8, 8, 4);
-        part(g, tvM, 0, base + 8, -3, w, tvSize(p.inches || 55).screenH, 4);
+        // Modern flat TV on two slim feet near its ends, standing on whatever is below it. The screen faces
+        // local -z (into the room); a thin dark panel with a narrow bezel, a glossy black screen, a slightly
+        // deeper box on the back and a tiny standby light.
+        const bodyM = mat('#1b1c1e', { roughness:0.45, metalness:0.25 });
+        const bezelM = mat('#2b2d30', { roughness:0.3, metalness:0.55 });
+        const screenM = mat('#040506', { roughness:0.06, metalness:0.15 });
+        const footM = mat('#2a2c2f', { roughness:0.3, metalness:0.65 });
+        const sh = tvSize(p.inches || 55).screenH + 1.6, y0 = base + 7, fd = Math.min(22, d - 2);
+        part(g, bodyM, 0, y0, 0, w, sh, 2.4);                                    // panel
+        part(g, bodyM, 0, y0 + sh*0.12, 2.6, w*0.62, sh*0.55, 3);               // electronics box on the back
+        part(g, screenM, 0, y0 + 1.4, -1.25, w - 1.4, sh - 2.2, 0.2, false);     // glass
+        part(g, bezelM, 0, y0, -1.25, w, 1.4, 0.25, false);                     // slightly thicker bottom bezel
+        const led = new THREE.Mesh(new THREE.SphereGeometry(0.0025, 8, 6), mat('#300', { emissive:new THREE.Color('#ff2a1a'), emissiveIntensity:1 }));
+        led.position.set(0, (y0 + 0.7)/100, -1.5/100); g.add(led);
+        for (const sx of [-1, 1]){
+          const fx = sx*(w/2 - 14);
+          part(g, footM, fx, base, -0.5, 4, 1.2, fd);                           // foot on the furniture
+          part(g, footM, fx, base + 1.2, 0.4, 3, y0 - base + 4, 1.6);           // upright into the TV
+        }
       } else if (kind === 'shelves'){
         // Open unit: wooden top, wooden shelf 30 cm lower, black metal grid 39 cm below that, on black posts
         const blackM = mat('#1b1c1e', { roughness:0.5, metalness:0.5 });
