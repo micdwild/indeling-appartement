@@ -2577,10 +2577,10 @@ details[open] summary { margin-bottom: 8px; }
   // Walls longer than 2 m get two curtains that meet in the middle; shorter ones a single curtain that
   // gathers at the end away from the window.
   const CURTAIN_WALLS = [
-    { id:'bed',  name:'Bedroom window wall',              along:'x', a:BEDROOM[0][0], b:BEDROOM[1][0], f:139 },
-    { id:'livL', name:'Living room wall (194 cm window)',  along:'x', a:0, b:298, f:139 },
-    { id:'step', name:'Corner window wall',               along:'z', a:0, b:139, f:298, gather:'b' },
-    { id:'top',  name:'Living room wall (188 cm window)',  along:'x', a:298, b:624, f:0 },
+    { id:'bed',  room:'Bedroom',     along:'x', a:BEDROOM[0][0], b:BEDROOM[1][0], f:139 },
+    { id:'livL', room:'Living room', along:'x', a:0, b:298, f:139 },
+    { id:'step', room:'Living room', along:'z', a:0, b:139, f:298, gather:'b' },
+    { id:'top',  room:'Living room', along:'x', a:298, b:624, f:0 },
   ];
   const curOpen = id => s3.curtains.open[id] ?? 1;
   function buildCurtains(G, wallH, mat){
@@ -2620,7 +2620,7 @@ details[open] summary { margin-bottom: 8px; }
   function curtainAt(hit){ for (let o = hit && hit.object; o; o = o.parent) if (o.userData && o.userData.curtain) return CURTAIN_WALLS.find(w => w.id === o.userData.curtain); return null; }
   let curSel = null, curRebuild = 0;
   function openCurPanel(W){
-    curSel = W.id; $('curName').textContent = W.name;
+    curSel = W.id; $('curName').textContent = W.room + ' curtains';
     $('curOpen').value = Math.round(curOpen(W.id)*100);
     $('curPanel').hidden = false; placeCurPanel();
   }
@@ -2636,7 +2636,10 @@ details[open] summary { margin-bottom: 8px; }
   }
   $('curOpen').addEventListener('input', e => {
     if (!curSel) return;
-    s3.curtains.open[curSel] = +e.target.value/100; save3();
+    // All curtains in the same room move together
+    const room = CURTAIN_WALLS.find(w => w.id === curSel).room;
+    for (const w of CURTAIN_WALLS) if (w.room === room) s3.curtains.open[w.id] = +e.target.value/100;
+    save3();
     cancelAnimationFrame(curRebuild); curRebuild = requestAnimationFrame(() => rebuild3D());
   });
   $('curClose').onclick = () => { $('curPanel').hidden = true; curSel = null; };
