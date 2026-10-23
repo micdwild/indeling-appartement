@@ -235,6 +235,10 @@ details[open] summary { margin-bottom: 8px; }
 .walkpad [data-k="arrowdown"] { grid-column: 2; grid-row: 2; }
 .walkpad [data-k="arrowright"] { grid-column: 3; grid-row: 2; }
 .hrows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+/* Colour code next to each colour square: type or paste a code like #9d4d0c, or copy it from here */
+.hrow .row2 { grid-column: 2 / 5; display: flex; gap: 6px; margin-bottom: 6px; min-width: 0; }
+.hrow .row2 select.shape { flex: 1; min-width: 0; margin-bottom: 0; }
+.hrow input.hex { width: 82px; flex: none; font-family: var(--font-mono); font-size: 12px; padding: 4px 6px; }
 .hrow select.shape { grid-column: 2 / 5; font: inherit; font-size: 12.5px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; margin-bottom: 6px; }
 .hrow input[type="color"] { width: 28px; height: 24px; padding: 0 2px; border-radius: 5px; cursor: pointer; }
 .hrow { display: grid; grid-template-columns: 28px minmax(0,1fr) 74px 22px; gap: 10px; align-items: center; padding: 3px 8px; }
@@ -403,7 +407,7 @@ details[open] summary { margin-bottom: 8px; }
         <h2>Room heights</h2>
         <ul class="hrows">
           <li class="hrow"><span></span><label for="h3-ceiling">Ceiling</label><input id="h3-ceiling" data-room="ceiling" type="number" min="200" max="600"><span class="unit">cm</span></li>
-          <li class="hrow"><input type="color" id="h3frame" aria-label="Window frame colour" title="Window frame colour"><label for="h3frame">Window frames</label><span></span><span></span></li>
+          <li class="hrow"><input type="color" id="h3frame" aria-label="Window frame colour" title="Window frame colour"><label for="h3frame">Window frames</label><input class="hex" id="h3frameHex" data-hexframe="1" maxlength="7" spellcheck="false" aria-label="Window frame colour code" style="grid-column:3 / 5"></li>
           <li class="hrow"><span></span><label for="h3-windowTop">Windows (from floor)</label><input id="h3-windowTop" data-room="windowTop" type="number" min="50" max="600"><span class="unit">cm</span></li>
           <li class="hrow"><span></span><label for="h3-door">Entrance opening</label><input id="h3-door" data-room="door" type="number" min="150" max="600"><span class="unit">cm</span></li>
           <li class="hrow"><span></span><label for="h3-counter">Kitchen counter</label><input id="h3-counter" data-room="counter" type="number" min="50" max="150"><span class="unit">cm</span></li>
@@ -2478,6 +2482,7 @@ details[open] summary { margin-bottom: 8px; }
   function render3DPanel(){
     for (const k of Object.keys(ROOM_H)) if (document.activeElement !== $('h3-' + k)) $('h3-' + k).value = s3.room[k];
     $('h3frame').value = s3.frame;
+    if (document.activeElement !== $('h3frameHex')) $('h3frameHex').value = s3.frame;
     if ($('h3items').contains(document.activeElement)) return;
     const placed = pieces.filter(p => p.placed && !isOnTop(p));
     $('h3items').innerHTML = placed.length ? placed.map(p => `<li class="hrow">
@@ -2485,17 +2490,31 @@ details[open] summary { margin-bottom: 8px; }
         <label for="h3p-${p.id}">${esc(p.name)}</label>
         <input id="h3p-${p.id}" data-hid="${p.id}" type="number" min="5" max="300" value="${heightOf(p)}">
         <span class="unit">cm</span>
-        <select class="shape" data-sid="${p.id}" aria-label="Shape of ${esc(p.name)}">${Object.entries(SHAPES).map(([k, v]) => `<option value="${k}"${shapeOf(p) === k ? ' selected' : ''}>${v}</option>`).join('')}</select></li>`).join('')
+        <div class="row2"><input class="hex" data-hex="${p.id}" value="${colorOf(p)}" maxlength="7" spellcheck="false" aria-label="Colour code of ${esc(p.name)}" title="Colour code: copy it, or paste one in">
+        <select class="shape" data-sid="${p.id}" aria-label="Shape of ${esc(p.name)}">${Object.entries(SHAPES).map(([k, v]) => `<option value="${k}"${shapeOf(p) === k ? ' selected' : ''}>${v}</option>`).join('')}</select></div></li>`).join('')
       : `<li class="empty">No furniture in the room yet.</li>`;
   }
   const ROOM_LIMITS = { ceiling:[200,600], windowTop:[50,600], door:[150,600], counter:[50,150],
     fridgeW:[40,120], fridgeTop:[60,220], ovenH:[20,80], wallBottom:[100,260], wallTop:[120,600], wallDepth:[20,60], person:[100,230], bulkBottom:[150,600] };
   $('main3d').addEventListener('input', e => {
-    if (e.target.id === 'h3frame'){ s3.frame = e.target.value; save3(); rebuild3D(); return; }
+    if (e.target.id === 'h3frame'){ s3.frame = e.target.value; $('h3frameHex').value = s3.frame; save3(); rebuild3D(); return; }
+    // Typed or pasted colour codes: #rrggbb or #rgb, with or without the #
+    if (e.target.dataset.hex || e.target.dataset.hexframe){
+      let v = e.target.value.trim().replace(/^#?/, '#').toLowerCase();
+      if (/^#[0-9a-f]{3}$/.test(v)) v = '#' + v.slice(1).split('').map(ch => ch + ch).join('');
+      if (!/^#[0-9a-f]{6}$/.test(v)) return;
+      if (e.target.dataset.hexframe){ s3.frame = v; $('h3frame').value = v; }
+      else { s3.c[e.target.dataset.hex] = v; const sw = $('h3c-' + e.target.dataset.hex); if (sw) sw.value = v; }
+      save3(); rebuild3D(); return;
+    }
     const sid = e.target.dataset.sid;
     if (sid){ const p = byId(sid); if (p && SHAPES[e.target.value]){ p.type = e.target.value; ls.set(STORE_KEY, pieces); } rebuild3D(); return; }
     const cid = e.target.dataset.cid;
-    if (cid){ s3.c[cid] = e.target.value; save3(); rebuild3D(); return; }
+    if (cid){
+      s3.c[cid] = e.target.value;
+      const hx = $('h3items').querySelector(`[data-hex="${cid}"]`); if (hx) hx.value = e.target.value;
+      save3(); rebuild3D(); return;
+    }
     const v = Math.round(+e.target.value);
     const rk = e.target.dataset.room, hid = e.target.dataset.hid;
     if (rk){ const [lo, hi] = ROOM_LIMITS[rk]; if (!(v >= lo && v <= hi)) return; s3.room[rk] = v; }
@@ -2503,7 +2522,7 @@ details[open] summary { margin-bottom: 8px; }
     else return;
     save3(); rebuild3D();
   });
-  $('main3d').addEventListener('focusout', e => { if (e.target.dataset.room || e.target.dataset.hid) setTimeout(render3DPanel, 0); });
+  $('main3d').addEventListener('focusout', e => { if (e.target.dataset.room || e.target.dataset.hid || e.target.dataset.hex || e.target.dataset.hexframe) setTimeout(render3DPanel, 0); });
   $('h3resetC').onclick = () => { s3.c = {}; save3(); render3DPanel(); rebuild3D(); toast('Colours reset to the plan colours'); };
 
   // One-time: the Keukenkastje becomes a drawer unit with 3 clear drawers, turned so they face into the room
