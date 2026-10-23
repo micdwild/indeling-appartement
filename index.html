@@ -1886,7 +1886,7 @@ details[open] summary { margin-bottom: 8px; }
         for (let i = 1; i < n; i++) part(g, blackM, -w/2 + 2 + i*(w - 4)/n, gridY, 0, 0.6, 1, d - 6, false);
         for (const sx of [-1, 1]) for (const sz of [-1, 1]) part(g, blackM, sx*(w/2 - 2), 0, sz*(d/2 - 2), 3, topY, 3);
       } else if (kind === 'angled'){
-        // Table top in the chosen colour on four black legs that slant outwards: each leg starts under the top
+        // Table top in the chosen colour on four square black legs (5 × 5 cm) that slant outwards: each leg starts under the top
         // about 30 cm in from its corner (towards the centre) and reaches the floor about 10 cm from the corner
         const top = Math.min(4, H), legM = mat('#141414', { roughness:0.45, metalness:0.2 });
         part(g, m, 0, H - top, 0, w, top, d);
@@ -1895,7 +1895,7 @@ details[open] summary { margin-bottom: 8px; }
           const tIn = Math.min(30, diag*0.6), bIn = Math.min(10, diag*0.2);
           const a = new THREE.Vector3(sx*(w/2 - ux*bIn), 0, sz*(d/2 - uz*bIn));               // on the floor
           const b = new THREE.Vector3(sx*(w/2 - ux*tIn), H - top, sz*(d/2 - uz*tIn));         // under the top
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.015, a.distanceTo(b)/100, 16), legM);
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, a.distanceTo(b)/100, 0.05), legM);   // square, 5 × 5 cm
           leg.position.copy(a.clone().add(b).multiplyScalar(0.005));
           leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
           leg.castShadow = leg.receiveShadow = true; g.add(leg);
