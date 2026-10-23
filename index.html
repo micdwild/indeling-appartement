@@ -2599,8 +2599,10 @@ details[open] summary { margin-bottom: 8px; }
       if (!showCurtains) continue;
       const open = curOpen(W.id), two = L > 200;
       const full = two ? L/2 + 3 : L, width = Math.max(14, full*(1 - 0.86*open));
-      // Folds get deeper when the curtain is gathered, but never steeper than about 50° (so they stay readable)
-      const pleats = Math.max(4, Math.round(full/13)), amp = Math.min(1.5 + 5*open, 0.3*width/pleats), hgt = railY - 2 - 1;
+      // A gathered curtain shows fewer but deeper folds; the folds never get steeper than about 60°, so the
+      // fabric keeps catching light instead of turning into dark slits
+      const pleats = Math.max(3, Math.round(Math.max(4, Math.round(full/13))*(1 - 0.7*open)));
+      const amp = Math.min(1.5 + 5*open, 0.28*width/pleats), hgt = railY - 2 - 1;
       const panel = (from, to) => {
         const wdt = to - from, geo = new THREE.PlaneGeometry(wdt/100, hgt/100, pleats*6, 1), pos = geo.attributes.position;
         for (let i = 0; i < pos.count; i++){ const u = (pos.getX(i)*100 + wdt/2)/wdt; pos.setZ(i, amp/100*Math.sin(u*pleats*Math.PI*2)); }
