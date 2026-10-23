@@ -681,7 +681,9 @@ details[open] summary { margin-bottom: 8px; }
   // ---------- Televisions ----------
   const isTV = p => p.kind === 'tv';
   // TVs, hobs and sinks stand on top of the counter or other furniture
-  const isOnTop = p => p.kind === 'tv' || p.kind === 'hob' || p.kind === 'sink' || p.kind === 'plant';
+  // Things that can stand on top of furniture (or the counter): TV, hob, sink and plants in pots.
+  // Plants may also simply stand on the floor.
+  const isOnTop = p => p.kind === 'tv' || p.kind === 'hob' || p.kind === 'sink' || p.kind === 'plant' || p.type === 'plantM' || p.type === 'plantL';
   const isPlant = p => p.kind === 'plant' || /^plant/.test(p.type || '');
   const TV_DEPTH = 25;
 
@@ -767,7 +769,7 @@ details[open] summary { margin-bottom: 8px; }
     const fits = pieces.filter(o => o !== p && tvFits(p, o) && !pieces.some(t => t !== p && isTV(t) && t.placed && tvSupport(t) === o));
     return fits.find(o => ['box','rounded'].includes(shapeOf(o))) || fits[0] || null;
   }
-  const hasTV = o => pieces.some(t => isOnTop(t) && t.kind !== 'plant' && t.placed && tvSupport(t) === o);
+  const hasTV = o => pieces.some(t => isOnTop(t) && !isPlant(t) && t.placed && tvSupport(t) === o);
   function tvStatus(p){
     const pl = poly(p, 1), bad = [];
     if (!insideRoom(pl)) bad.push('Sticks out through a wall');
@@ -782,7 +784,7 @@ details[open] summary { margin-bottom: 8px; }
     if (!sup && COUNTER.some(r => overlap(pl, rectPoly(r)))) bad.push('Hangs over the edge of the kitchen counter');
     if (bad.length) return { level:'bad', msgs:bad };
     return sup ? { level:'ok', msgs:['Stands on the ' + sup.name.toLowerCase()] }
-      : p.kind === 'plant' ? { level:'ok', msgs:['Stands on the floor'] }
+      : isPlant(p) ? { level:'ok', msgs:['Stands on the floor'] }
       : { level:'warn', msgs:[isTV(p) ? 'Stands on the floor. Drag it onto a piece of furniture, or choose one below.' : 'Stands on the floor. Drag it onto the kitchen counter.'] };
   }
   // Small plants: put them on a cupboard or other furniture, trying a few spots along its length
@@ -946,7 +948,7 @@ details[open] summary { margin-bottom: 8px; }
     p.placed = true;
     if (isTV(p)){ const o = bestTVSpot(p); if (o){ Object.assign(p, tvPlacementOn(p, o)); return; } }
     if (p.kind === 'plant'){ if (placeOnFurniture(p)) return; }
-    else if (isOnTop(p) && !isTV(p) && placeOnCounter(p)) return;
+    else if (isOnTop(p) && !isTV(p) && !isPlant(p) && placeOnCounter(p)) return;
     for (const [x0, x1] of [[10, 615], [-345, -20]]) for (let y = 160; y <= 530; y += 10) for (let x = x0; x <= x1; x += 10){
       p.x = x; p.y = y;
       if (status(p).level === 'ok') return;
@@ -1033,7 +1035,7 @@ details[open] summary { margin-bottom: 8px; }
       pieces.push(n); placeFree(n); selId = n.id;
       // The copy also gets the original's 3D colour and height
       if (s3.c[p.id]) s3.c[n.id] = s3.c[p.id];
-      if (!isOnTop(p)) s3.h[n.id] = heightOf(p);
+      if (!(isOnTop(p) && p.kind)) s3.h[n.id] = heightOf(p);
       save3();
     }
     if (act === 'del'){ pieces = pieces.filter(o => o !== p); selId = null; }
@@ -1247,7 +1249,7 @@ details[open] summary { margin-bottom: 8px; }
     : /\bbed\b|malm/i.test(p.name) ? 'bed'
     : /clothes|wardrobe|kleerkast/i.test(p.name) ? 'wardrobe'
     : isTable(p) || p.id === 'coffee' || /table|tafel/i.test(p.name) ? 'table' : 'box';
-  const shapeOf = p => isOnTop(p) ? p.kind : SHAPES[p.type] ? p.type : autoShape(p);
+  const shapeOf = p => isOnTop(p) && p.kind ? p.kind : SHAPES[p.type] ? p.type : autoShape(p);
   const heightOf = p => s3.h[p.id] ?? DEFAULT_H[p.id] ?? TYPES[shapeOf(p)]?.H ?? 75;
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#999999';
 
@@ -1919,7 +1921,8 @@ details[open] summary { margin-bottom: 8px; }
       g.rotation.y = -p.rot * Math.PI/180;
       g.userData.piece = p.id;
       // Contact shadow on the floor under the piece: darker under solid pieces than under legged ones
-      if (!isOnTop(p)){
+      // (not for things standing on other furniture)
+      if (!isOnTop(p) || (isPlant(p) && !tvSupport(p))){
         const solid = ['box', 'couch', 'wardrobe', 'bed', 'drawers', 'plantM', 'plantL'].includes(shapeOf(p));
         const b = new THREE.Mesh(new THREE.PlaneGeometry(p.w/75, p.h/75), blobMat(solid ? 0.5 : 0.28));
         b.rotation.x = -Math.PI/2; b.position.y = 0.004; b.renderOrder = 1; b.userData.noPT = true; g.add(b);
@@ -1933,7 +1936,7 @@ details[open] summary { margin-bottom: 8px; }
         buildPlant(g, { base, potR:R*0.9, potRb:R*0.65, potH:12, potM:m, style:'bushy', top:base + 35, seed:p.id });
       } else if (kind === 'plantM' || kind === 'plantL'){
         const R = Math.min(w, d)/2, big = kind === 'plantL';
-        buildPlant(g, { base:0, potR:R*0.85, potRb:R*0.65, potH:Math.min(big ? 42 : 32, H*0.3), potM:m, style:big ? 'tall' : 'broad', top:H, seed:p.id });
+        buildPlant(g, { base, potR:R*0.85, potRb:R*0.65, potH:Math.min(big ? 42 : 32, H*0.3), potM:m, style:big ? 'tall' : 'broad', top:H, seed:p.id });
       } else if (kind === 'plantStand'){
         // Round plant table: two round shelves (top at about 50 cm and 5 cm) on three thin black legs
         const R = Math.min(w, d)/2, legM = mat('#151515', { roughness:0.45, metalness:0.3 });
@@ -2660,7 +2663,7 @@ details[open] summary { margin-bottom: 8px; }
     $('h3frame').value = s3.frame;
     if (document.activeElement !== $('h3frameHex')) $('h3frameHex').value = s3.frame;
     if ($('h3items').contains(document.activeElement)) return;
-    const placed = pieces.filter(p => p.placed && !isOnTop(p));
+    const placed = pieces.filter(p => p.placed && !(isOnTop(p) && p.kind));
     $('h3items').innerHTML = placed.length ? placed.map(p => `<li class="hrow">
         <input type="color" id="h3c-${p.id}" data-cid="${p.id}" value="${colorOf(p)}" aria-label="Colour of ${esc(p.name)}" title="Pick a colour">
         <label for="h3p-${p.id}">${esc(p.name)}</label>
