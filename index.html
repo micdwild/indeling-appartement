@@ -1400,17 +1400,18 @@ details[open] summary { margin-bottom: 8px; }
     for (let i = 0; i < N; i++){
       let x, z;
       do { x = -6 + Math.random()*18.5; z = -7 + Math.random()*19.5; } while ((x > -3.9 && x < 6.6 && z > 1.2 && z < 5.8) || (x > 2.8 && x < 6.6 && z > -0.3 && z < 5.8));  // rain falls on the balcony, not indoors
-      const y = Math.random()*8;
+      const y = Math.random()*11 - 3;   // from the street (3 m below the floor) up to 8 m
       rainPos.set([x, y, z, x + 0.03, y + 0.28, z], i*6);
     }
     const rainGeo = new THREE.BufferGeometry();
     rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
     const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color:0xc8d4de, transparent:true, opacity:0.55 }));
     rain.visible = false; scene.add(rain);
+    const outside = buildOutside(scene);
     const sun = new THREE.DirectionalLight(0xfff3df, 0.8);
     sun.position.set(1.5, 9, -5); sun.target.position.set(1.4, 0, 2.7);
-    sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(sun.shadow.camera, { left:-9, right:9, top:9, bottom:-9, near:0.5, far:45 });
+    sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+    Object.assign(sun.shadow.camera, { left:-16, right:16, top:16, bottom:-16, near:0.5, far:45 });
     sun.shadow.bias = -0.0005;
     scene.add(sun, sun.target);
     // Daylight coming in through each window: a soft light panel in the glass, shining into the room
@@ -1426,7 +1427,8 @@ details[open] summary { margin-bottom: 8px; }
     envGeo.setAttribute('color', new THREE.Float32BufferAttribute(new Array(envGeo.attributes.position.count*3).fill(0), 3));
     envScene.add(new THREE.Mesh(envGeo, new THREE.MeshBasicMaterial({ vertexColors:true, side:THREE.BackSide, toneMapped:false })));
     const pmrem = new THREE.PMREMGenerator(renderer);
-    T3 = { renderer, scene, camera, controls, group:null, raf:0, last:0, sun, hemi, amb, lamps, rain, winLights, envScene, envGeo, pmrem };
+    T3 = { renderer, scene, camera, controls, group:null, raf:0, last:0, sun, hemi, amb, lamps, rain, winLights, envScene, envGeo, pmrem,
+      outside:outside.group, crowns:outside.crowns, crownMats:outside.crownMats };
 
     new ResizeObserver(resize3D).observe(stage);
     let look = null;
@@ -1559,8 +1561,9 @@ details[open] summary { margin-bottom: 8px; }
     const wallH = walking || !lowWalls ? R.ceiling : 100;
 
     // Ground, floor, ceiling
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), mat('#b5d29c'));
-    ground.rotation.x = -Math.PI/2; ground.position.set(1.4, -0.01, 2.7); ground.receiveShadow = true; G.add(ground);
+    // The street level: the apartment is on the first floor, about 3 m up
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), mat('#9fbf86'));
+    ground.rotation.x = -Math.PI/2; ground.position.set(1.4, -STREET/100, 2.7); ground.receiveShadow = true; G.add(ground);
     T3.floors = []; T3.ceilMats = [];
     for (const room of INDOOR){
       const shape = new THREE.Shape(room.map(([x, y]) => new THREE.Vector2(x/100, y/100)));
@@ -2259,6 +2262,74 @@ details[open] summary { margin-bottom: 8px; }
     return woodTex;
   }
 
+  // ---------- Outside: building below, cycleway and trees ----------
+  // The apartment floor is on the first floor, STREET cm above the street. In front of the balcony (north-east,
+  // towards -z) runs a cycleway, and beyond it a double row of tall trees whose crowns reach the windows.
+  const STREET = 300;
+  function buildOutside(scene){
+    const O = new THREE.Group();
+    const mk = (c, extra) => new THREE.MeshStandardMaterial({ color:lin(c), roughness:0.9, envMapIntensity:0.6, ...(extra || {}) });
+    const box = (m, x1, y1, z1, x2, y2, z2) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, y2 - y1, z2 - z1), m);
+      b.position.set((x1 + x2)/2, (y1 + y2)/2, (z1 + z2)/2); b.castShadow = b.receiveShadow = true; O.add(b); return b;
+    };
+    const S = STREET/100;
+    // Ground floor below the apartment (outer outline of both rooms), in light plaster
+    const plaster = mk('#d8d2c8');
+    box(plaster, -3.64, -S, 1.27, 6.36, -0.16, 5.53);
+    box(plaster, 2.86, -S, -0.12, 6.36, -0.16, 1.27);
+    // Cycleway along the building, in red asphalt with a dashed white middle line, and kerbs
+    const z0 = -2.4, z1 = -4.9;
+    box(mk('#9b4a3f', { roughness:0.95 }), -20, -S, z1, 24, -S + 0.02, z0);
+    for (let x = -19.5; x < 24; x += 2) box(mk('#f2f2ec'), x, -S + 0.02, (z0 + z1)/2 - 0.05, x + 1, -S + 0.025, (z0 + z1)/2 + 0.05);
+    for (const z of [z0, z1]) box(mk('#a9a6a0'), -20, -S, z - 0.08, 24, -S + 0.1, z + 0.08);
+    // Trees: two staggered rows beyond the cycleway; trunk, a few branches and a crown of leafy clumps
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const barkM = mk('#5a4c40', { roughness:1 });
+    const crownMats = [0, 1, 2].map(() => mk('#4f7f37', { roughness:0.85 }));
+    const crowns = [];
+    const limb = (a, b, r0, r1) => {
+      const l = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, a.distanceTo(b), 8), barkM);
+      l.position.copy(a).add(b).multiplyScalar(0.5);
+      l.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+      l.castShadow = l.receiveShadow = true; O.add(l);
+    };
+    for (let row = 0; row < 2; row++) for (let x = -12 + row*1.7; x < 17; x += 3.4){
+      const tx = x + (rnd() - 0.5)*1.2, tz = -7.2 - row*3.4 + (rnd() - 0.5)*1.2;
+      const h = 9 + rnd()*5, trunkH = 3 + rnd()*1.5, r = 0.16 + rnd()*0.08;
+      const foot = new THREE.Vector3(tx, -S, tz), top = new THREE.Vector3(tx + (rnd() - 0.5)*0.4, -S + trunkH, tz + (rnd() - 0.5)*0.4);
+      limb(foot, top, r, r*0.75);
+      const crownC = new THREE.Vector3(top.x, -S + trunkH + (h - trunkH)*0.55, top.z);
+      for (let k = 0; k < 5; k++){
+        const a = k/5*Math.PI*2 + rnd(), up = 0.5 + rnd()*0.4;
+        const end = crownC.clone().add(new THREE.Vector3(Math.cos(a)*(1.2 + rnd()*1.3), (h - trunkH)*up*0.6, Math.sin(a)*(1.2 + rnd()*1.3)));
+        limb(top, end, r*0.6, r*0.25);
+      }
+      const spread = 2 + rnd()*1.2, nClumps = 7 + Math.floor(rnd()*4);
+      for (let k = 0; k < nClumps; k++){
+        const g = new THREE.IcosahedronGeometry(1, 1), pos = g.attributes.position;
+        for (let i = 0; i < pos.count; i++){ const f = 0.85 + rnd()*0.3; pos.setXYZ(i, pos.getX(i)*f, pos.getY(i)*f, pos.getZ(i)*f); }
+        g.computeVertexNormals();
+        const c = new THREE.Mesh(g, crownMats[k % crownMats.length]);
+        const a = rnd()*Math.PI*2, rr = rnd()*spread*0.7;
+        c.position.set(crownC.x + Math.cos(a)*rr, crownC.y + (rnd() - 0.3)*(h - trunkH)*0.45, crownC.z + Math.sin(a)*rr);
+        c.userData.s = 1.3 + rnd()*1.1; c.scale.setScalar(c.userData.s);
+        c.castShadow = c.receiveShadow = true; O.add(c); crowns.push(c);
+      }
+    }
+    scene.add(O);
+    return { group:O, crowns, crownMats };
+  }
+  // Leaf colour and fullness through the year: bare in winter, fresh green in spring, green in summer,
+  // turning orange-brown in autumn
+  function treeSeason(day){
+    if (day < 80 || day > 335) return { key:'winter', show:false, scale:1, colors:['#4f7f37'] };
+    if (day < 115) return { key:'spring', show:true, scale:0.75, colors:['#9cc56b', '#8dbb5c', '#a8cf78'] };
+    if (day < 255) return { key:'summer', show:true, scale:1, colors:['#4f7f37', '#5a8a3c', '#476f33'] };
+    if (day < 300) return { key:'autumn', show:true, scale:0.95, colors:['#c8902f', '#b5652a', '#9d8a35'] };
+    return { key:'late', show:true, scale:0.7, colors:['#a5622c', '#8e5a2e', '#b07a3a'] };
+  }
+
   // ---------- Sun, time of day and weather ----------
   // The large windows (top of the plan) face north-east. Location: Belgium, Belgian clock time.
   const LAT = 51.0, LON = 4.4, FACING = 45, YEAR = new Date().getFullYear();
@@ -2345,6 +2416,12 @@ details[open] summary { margin-bottom: 8px; }
     updateEnvMap(day, up, W, bg);
     // Remember the light for the beautified picture
     T3.envInfo = { day, W, bg, lampsOn };
+    // Trees follow the seasons on the date slider
+    const season = treeSeason(env.day);
+    for (const c of T3.crowns){ c.visible = season.show; c.scale.setScalar(c.userData.s*season.scale); }
+    T3.crownMats.forEach((m, i) => m.color.copy(lin(season.colors[i % season.colors.length])));
+    if (T3.pt && T3.seasonKey !== season.key) ptMarkDirty(500);
+    T3.seasonKey = season.key;
     if (T3.pt) T3.pt.envDirty = true;
   }
   $('timeRange').value = env.min; $('dayRange').value = env.day;
@@ -2462,7 +2539,7 @@ details[open] summary { margin-bottom: 8px; }
     const hidden = [];
     T3.group.traverse(o => { if (o.userData.noPT && o.visible){ o.visible = false; hidden.push(o); } });
     T3.group.updateMatrixWorld(true);
-    new THREE.GLTFExporter().parse(T3.group, result => {
+    new THREE.GLTFExporter().parse([T3.group, T3.outside], result => {
       hidden.forEach(o => o.visible = true);
       new window.__ptLibs.GL.GLTFLoader().parse(result, '', gltf => {
         if (T3.pt !== P) return;
@@ -2617,7 +2694,7 @@ details[open] summary { margin-bottom: 8px; }
         const a = T3.rain.geometry.attributes.position.array;
         for (let i = 0; i < a.length; i += 6){
           a[i+1] -= 9*dt; a[i+4] -= 9*dt;
-          if (a[i+1] < 0){ a[i+1] += 8; a[i+4] += 8; }
+          if (a[i+1] < -3){ a[i+1] += 11; a[i+4] += 11; }
         }
         T3.rain.geometry.attributes.position.needsUpdate = true;
       }
