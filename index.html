@@ -458,7 +458,7 @@ details[open] summary { margin-bottom: 8px; }
 
   // Default layout and 3D settings: the user's own setup (from a layout code, 23 Oct 2026).
   // Used for anyone opening the page without saved data of their own.
-  const EXAMPLE = [{"id":"couch","name":"Zetel","w":173,"h":90,"color":1,"x":200,"y":334.5,"rot":90,"placed":true,"type":"couch"},{"id":"coffee","name":"Tafeltje","w":45,"h":55,"color":3,"x":207.5,"y":222.5,"rot":90,"placed":true,"type":"table"},{"id":"table","name":"Tafel","w":160,"h":80,"color":2,"x":435,"y":255,"rot":270,"placed":true,"type":"table"},{"id":"cupboard","name":"Zwarte kast","w":80,"h":55,"color":4,"x":40,"y":513.5,"rot":0,"placed":true,"type":"box"},{"id":"high","name":"Keukenkastje","w":53,"h":40,"color":5,"x":597.5,"y":265,"rot":0,"placed":true,"type":"box"},{"id":"wardrobe","name":"Kast molly","w":127,"h":52,"color":6,"x":-38,"y":228.5,"rot":90,"placed":true,"type":"wardrobe"},{"id":"c1792747892573","name":"Bureau 200","w":80,"h":200,"color":7,"x":524,"y":55.0,"rot":90,"placed":true,"custom":true,"type":"desk"},{"id":"c1792747948957","name":"Jamban","w":60,"h":120,"color":8,"x":594,"y":344,"rot":0,"placed":true,"custom":true,"type":"shelves"},{"id":"chair1","name":"Chair 1","w":45,"h":50,"color":7,"x":465,"y":222.5,"rot":270,"placed":true,"custom":true,"type":"chair"},{"id":"chair2","name":"Chair 2","w":45,"h":50,"color":7,"x":465,"y":287.5,"rot":270,"placed":true,"custom":true,"type":"chair"},{"id":"chair3","name":"Chair 3","w":45,"h":50,"color":7,"x":410,"y":222.5,"rot":90,"placed":true,"custom":true,"type":"chair"},{"id":"chair4","name":"Chair 4","w":45,"h":50,"color":7,"x":410,"y":287.5,"rot":90,"placed":true,"custom":true,"type":"chair"},{"id":"c1792748171973","name":"Sordino","w":180,"h":40,"color":7,"x":20.0,"y":330,"rot":90,"placed":true,"custom":true,"type":"rounded"},{"id":"tv1792751975472","kind":"tv","name":"50″ TV","inches":50,"w":111,"h":25,"color":8,"x":12.5,"y":330.5,"rot":90,"placed":true,"custom":true},{"id":"hob1792755981802","kind":"hob","name":"Inductievuur","w":50,"h":40,"color":8,"x":595,"y":446,"rot":270,"placed":true,"custom":true},{"id":"sink1792756114868","kind":"sink","name":"Kraan","w":113,"h":50,"color":8,"x":456.5,"y":516,"rot":180,"placed":true,"custom":true,"bowls":2,"drainer":"right","bowlW":[40,20],"drainW":40,"depth":50},{"id":"bed","name":"Bed Michiel","type":"bed","w":160,"h":200,"color":2,"x":-252,"y":285,"rot":270,"placed":true,"custom":true},{"id":"cupboard2","name":"Kast Michiel","type":"wardrobe","w":117,"h":50,"color":4,"x":-37,"y":353.5,"rot":90,"placed":true,"custom":true},{"id":"c1792757779741","name":"Chair 4 2","w":45,"h":50,"color":7,"x":-292.5,"y":516,"rot":180,"placed":false,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792757786223","name":"Chair 4 2 2","w":45,"h":50,"color":7,"x":-217.5,"y":516,"rot":0,"placed":false,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792759494242","name":"Chair 3 2","w":45,"h":50,"color":7,"x":-287.5,"y":516,"rot":0,"placed":true,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792759499808","name":"Chair 3 2 2","w":45,"h":50,"color":7,"x":-217.5,"y":516,"rot":0,"placed":true,"custom":true,"type":"chair","kind":"chair"}];
+  const EXAMPLE = [{"id":"couch","name":"Zetel","w":173,"h":90,"color":1,"x":200,"y":334.5,"rot":90,"placed":true,"type":"couch"},{"id":"coffee","name":"Tafeltje","w":45,"h":55,"color":3,"x":207.5,"y":222.5,"rot":90,"placed":true,"type":"table"},{"id":"table","name":"Tafel","w":160,"h":80,"color":2,"x":435,"y":255,"rot":270,"placed":true,"type":"table"},{"id":"cupboard","name":"Zwarte kast","w":80,"h":55,"color":4,"x":40,"y":513.5,"rot":0,"placed":true,"type":"box"},{"id":"high","name":"Keukenkastje","w":53,"h":40,"color":5,"x":604,"y":265,"rot":90,"placed":true,"type":"drawers"},{"id":"wardrobe","name":"Kast molly","w":127,"h":52,"color":6,"x":-38,"y":228.5,"rot":90,"placed":true,"type":"wardrobe"},{"id":"c1792747892573","name":"Bureau 200","w":80,"h":200,"color":7,"x":524,"y":55.0,"rot":90,"placed":true,"custom":true,"type":"desk"},{"id":"c1792747948957","name":"Jamban","w":60,"h":120,"color":8,"x":594,"y":344,"rot":0,"placed":true,"custom":true,"type":"shelves"},{"id":"chair1","name":"Chair 1","w":45,"h":50,"color":7,"x":465,"y":222.5,"rot":270,"placed":true,"custom":true,"type":"chair"},{"id":"chair2","name":"Chair 2","w":45,"h":50,"color":7,"x":465,"y":287.5,"rot":270,"placed":true,"custom":true,"type":"chair"},{"id":"chair3","name":"Chair 3","w":45,"h":50,"color":7,"x":410,"y":222.5,"rot":90,"placed":true,"custom":true,"type":"chair"},{"id":"chair4","name":"Chair 4","w":45,"h":50,"color":7,"x":410,"y":287.5,"rot":90,"placed":true,"custom":true,"type":"chair"},{"id":"c1792748171973","name":"Sordino","w":180,"h":40,"color":7,"x":20.0,"y":330,"rot":90,"placed":true,"custom":true,"type":"rounded"},{"id":"tv1792751975472","kind":"tv","name":"50″ TV","inches":50,"w":111,"h":25,"color":8,"x":12.5,"y":330.5,"rot":90,"placed":true,"custom":true},{"id":"hob1792755981802","kind":"hob","name":"Inductievuur","w":50,"h":40,"color":8,"x":595,"y":446,"rot":270,"placed":true,"custom":true},{"id":"sink1792756114868","kind":"sink","name":"Kraan","w":113,"h":50,"color":8,"x":456.5,"y":516,"rot":180,"placed":true,"custom":true,"bowls":2,"drainer":"right","bowlW":[40,20],"drainW":40,"depth":50},{"id":"bed","name":"Bed Michiel","type":"bed","w":160,"h":200,"color":2,"x":-252,"y":285,"rot":270,"placed":true,"custom":true},{"id":"cupboard2","name":"Kast Michiel","type":"wardrobe","w":117,"h":50,"color":4,"x":-37,"y":353.5,"rot":90,"placed":true,"custom":true},{"id":"c1792757779741","name":"Chair 4 2","w":45,"h":50,"color":7,"x":-292.5,"y":516,"rot":180,"placed":false,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792757786223","name":"Chair 4 2 2","w":45,"h":50,"color":7,"x":-217.5,"y":516,"rot":0,"placed":false,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792759494242","name":"Chair 3 2","w":45,"h":50,"color":7,"x":-287.5,"y":516,"rot":0,"placed":true,"custom":true,"type":"chair","kind":"chair"},{"id":"c1792759499808","name":"Chair 3 2 2","w":45,"h":50,"color":7,"x":-217.5,"y":516,"rot":0,"placed":true,"custom":true,"type":"chair","kind":"chair"}];
   const DEFAULTS_3D = {"room":{"ceiling":280,"windowTop":200,"door":200,"counter":90,"fridgeW":60,"fridgeTop":145,"ovenH":45,"wallBottom":145,"wallTop":230,"wallDepth":35,"person":182,"bulkBottom":220},"h":{"high":140,"c1792747948957":90,"coffee":50,"c1792748171973":44,"c1792759494242":90,"c1792759499808":90},"c":{"couch":"#9d4d0c","coffee":"#835a25","chair1":"#71a881","chair2":"#71a881","chair3":"#71a881","chair4":"#71a881","c1792748171973":"#e9cda5","cupboard":"#000000","c1792747948957":"#9c6f49","high":"#e5fffa","c1792747892573":"#d0b290","wardrobe":"#f3f3f1","cupboard2":"#19191a","c1792759494242":"#71a881","c1792759499808":"#71a881"},"frame":"#fafaf8","fov":90};
   const CHAIRS_KEY = 'living-room-planner.chairs-added';
   // Four chairs, two along each long side of the table, facing it (45 × 50 cm is an estimate)
@@ -635,6 +635,8 @@ details[open] summary { margin-bottom: 8px; }
                icon:'<path d="M11 3v18M11 13h11v8"/>' },
     couch:   { label:'Couch', w:200, h:90, H:85, note:'Seat, backrest and armrests. In the plan the backrest is on the top long side; rotate to turn it.',
                icon:'<path d="M5 10v10h22V10M5 14h22M9 10V6h14v4"/>' },
+    drawers: { label:'Drawers', menu:'Drawer unit (3 clear drawers)', w:50, h:40, H:100, note:'Drawer unit with 3 see-through drawers, each with a knob. In the plan the front is the bottom side (marked); rotate to turn it.',
+               icon:'<rect x="9" y="2" width="14" height="20" rx="1"/><path d="M9 8.7h14M9 15.3h14"/><circle cx="16" cy="5.3" r="0.9"/><circle cx="16" cy="12" r="0.9"/><circle cx="16" cy="18.6" r="0.9"/>' },
     wardrobe:{ label:'Wardrobe', menu:'Clothes cupboard (3 doors, mirror)', w:120, h:55, H:200, note:'Clothes cupboard with 3 doors; the middle one is a mirror. In the plan the doors are on the bottom long side (marked); rotate to turn it.',
                icon:'<rect x="6" y="2" width="20" height="20" rx="1"/><path d="M12.7 2v20M19.3 2v20M11 12h0M21 12h0"/><path d="M14.5 6l3 3M14.5 10l3 3"/>' },
     bed:     { label:'Bed', w:160, h:200, H:100, note:'A bed frame with a mattress, two pillows and a headboard. In the plan the headboard is on the top short side; rotate to turn it.',
@@ -686,6 +688,11 @@ details[open] summary { margin-bottom: 8px; }
   }
   // Top-down details drawn inside a hob or sink in the plan
   function itemDetail(p){
+    if (!isOnTop(p) && shapeOf(p) === 'drawers'){
+      // Front (local bottom side) with the knob sticking out
+      return `<line x1="${-p.w/2 + 2}" y1="${p.h/2 - 2}" x2="${p.w/2 - 2}" y2="${p.h/2 - 2}" style="stroke:#8fbfd8;stroke-width:2.5"></line>`
+        + `<circle cx="0" cy="${p.h/2 + 1}" r="2.2" style="fill:var(--ink);stroke:none"></circle>`;
+    }
     if (!isOnTop(p) && shapeOf(p) === 'wardrobe'){
       // Door side (local bottom): three doors, the middle one a mirror
       const t = p.w/3, y = p.h/2 - 2;
@@ -1732,7 +1739,25 @@ details[open] summary { margin-bottom: 8px; }
       const fTop = Math.min(R.fridgeTop, kTop), oTop = Math.min(fTop + R.ovenH, kTop);
       part(G, cabM, cx, 0, cz, R.fridgeW, fTop, d);
       part(G, handleM, x2 - 6, fTop*0.3, y1 - 1, 2, fTop*0.45, 2);
-      part(G, mat('#25282b', { roughness:0.3 }), cx, fTop, cz, R.fridgeW, oTop - fTop, d);
+      // Combi-oven: dark body, control strip with a small display and two knobs, glass door with a
+      // window and a steel handle. Its front faces the room (towards smaller z, at z = y1).
+      {
+        const oH = oTop - fTop, W = R.fridgeW, fz = y1;
+        const steelM = mat('#c9ced2', { roughness:0.25, metalness:0.8 });
+        part(G, mat('#1d1f21', { roughness:0.4 }), cx, fTop, cz + 0.5, W, oH, d - 1);
+        if (oH > 20){
+          part(G, mat('#141517', { roughness:0.35 }), cx, oTop - 7.5, fz - 0.2, W - 3, 6.5, 1);                    // control strip
+          part(G, mat('#0c0d0e', { emissive:new THREE.Color('#7fcfff'), emissiveIntensity:0.6 }), cx, oTop - 5.3, fz - 0.8, 9, 2.2, 0.3, false); // display
+          for (const sx of [-1, 1]){
+            const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.015, 20), steelM);
+            knob.rotation.x = Math.PI/2; knob.position.set((cx + sx*(W/2 - 8))/100, (oTop - 4.2)/100, (fz - 1.2)/100); G.add(knob);
+          }
+          part(G, mat('#0e0f10', { roughness:0.08, metalness:0.3 }), cx, fTop + 1.5, fz - 0.3, W - 3, oH - 10, 0.8);    // glass door
+          part(G, mat('#2a3034', { roughness:0.05, metalness:0.2 }), cx, fTop + 5, fz - 0.8, W - 16, oH - 21, 0.3, false); // door window
+          part(G, steelM, cx, oTop - 11.5, fz - 3.2, W - 14, 1.6, 1.6);                                              // handle
+          for (const sx of [-1, 1]) part(G, steelM, cx + sx*(W/2 - 9), oTop - 11.5, fz - 1.8, 1.2, 1.4, 2.4);
+        }
+      }
       part(G, cabM, cx, oTop, cz, R.fridgeW, kTop - oTop, d);
     }
     // Wall cupboards above the counter, split into ~60 cm units
@@ -1758,7 +1783,7 @@ details[open] summary { margin-bottom: 8px; }
       g.userData.piece = p.id;
       // Contact shadow on the floor under the piece: darker under solid pieces than under legged ones
       if (!isOnTop(p)){
-        const solid = ['box', 'couch', 'wardrobe', 'bed', 'rounded'].includes(shapeOf(p));
+        const solid = ['box', 'couch', 'wardrobe', 'bed', 'rounded', 'drawers'].includes(shapeOf(p));
         const b = new THREE.Mesh(new THREE.PlaneGeometry(p.w/75, p.h/75), blobMat(solid ? 0.5 : 0.28));
         b.rotation.x = -Math.PI/2; b.position.y = 0.004; b.renderOrder = 1; g.add(b);
       }
@@ -1780,13 +1805,25 @@ details[open] summary { margin-bottom: 8px; }
         const L = sinkLayout(p), steelM = mat('#c4c9cc', { roughness:0.35, metalness:0.6 }), bowlM = mat('#7d8488', { roughness:0.4, metalness:0.5 });
         const chromeM = mat('#dfe3e6', { roughness:0.15, metalness:0.85 });
         part(g, steelM, 0, base, 0, w, 1, d);
-        for (const [a, b] of L.bowls) part(g, bowlM, (a+b)/2, base + 1, (L.z0+L.z1)/2, b-a, 0.15, L.z1-L.z0, false);
+        for (const [a, b] of L.bowls){
+          const bz = (L.z0 + L.z1)/2, bd = L.z1 - L.z0;
+          part(g, bowlM, (a+b)/2, base + 1, bz, b-a, 0.15, bd, false);
+          // raised steel rim around the bowl
+          part(g, steelM, (a+b)/2, base + 1, L.z0 - 0.6, b - a + 2.4, 0.5, 1.2); part(g, steelM, (a+b)/2, base + 1, L.z1 + 0.6, b - a + 2.4, 0.5, 1.2);
+          part(g, steelM, a - 0.6, base + 1, bz, 1.2, 0.5, bd); part(g, steelM, b + 0.6, base + 1, bz, 1.2, 0.5, bd);
+          // drain in the middle of the bowl
+          const drain = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.003, 24), mat('#4d5256', { roughness:0.3, metalness:0.7 }));
+          drain.position.set((a+b)/200, (base + 1.2)/100, bz/100); g.add(drain);
+          const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.004, 20), mat('#1c1e20'));
+          hole.position.set((a+b)/200, (base + 1.25)/100, bz/100); g.add(hole);
+        }
         if (L.drainer) for (let x = L.drainer[0] + 4; x < L.drainer[1] - 2; x += 6) part(g, bowlM, x, base + 1, (L.z0+L.z1)/2, 1, 0.3, L.z1-L.z0-4, false);
         const tz = -d/2 + 4.5, tx = L.tapX;
         part(g, chromeM, tx, base + 1, tz, 4.5, 3, 4.5);
         part(g, chromeM, tx, base + 4, tz, 2.6, 26, 2.6);
         part(g, chromeM, tx, base + 28, tz + 9, 2.6, 2.6, 20);
         part(g, chromeM, tx, base + 24, tz + 18, 2.6, 4, 2.6);
+        part(g, chromeM, tx + 3.5, base + 19, tz, 7, 1.4, 1.8);   // lever on the side of the tap
       } else if (kind === 'tv'){
         // Screen on a small stand, on top of whatever it stands on
         const tvM = mat('#16181a', { roughness:0.3, metalness:0.2 });
@@ -1843,6 +1880,22 @@ details[open] summary { margin-bottom: 8px; }
         const mesh = new THREE.Mesh(geo, m);
         mesh.castShadow = mesh.receiveShadow = true;
         g.add(mesh);
+      } else if (kind === 'drawers'){
+        // Open frame with 3 see-through drawers, each with a knob, on the front (local +z)
+        part(g, m, 0, H - 1.5, 0, w, 1.5, d); part(g, m, 0, 0, 0, w, 3, d);
+        for (const sx of [-1, 1]) part(g, m, sx*(w/2 - 0.75), 0, 0, 1.5, H, d);
+        part(g, m, 0, 0, -d/2 + 0.75, w, H, 1.5);
+        const clearM = mat('#eef6f8', { transparent:true, opacity:0.32, roughness:0.15, side:THREE.DoubleSide });
+        const trayM = mat('#dfe8ea', { transparent:true, opacity:0.55, roughness:0.3 });
+        const knobM = mat('#d4d8db', { roughness:0.3, metalness:0.6 }), slot = (H - 4.5)/3;
+        for (let i = 0; i < 3; i++){
+          const y0 = 3 + i*slot;
+          part(g, clearM, 0, y0 + 0.4, d/2 - 1, w - 3.4, slot - 0.8, 1.2, false);         // front
+          part(g, trayM, 0, y0 + 0.4, 0, w - 3.4, 0.5, d - 4, false);                      // bottom
+          for (const sx of [-1, 1]) part(g, clearM, sx*(w/2 - 2.2), y0 + 0.4, 0, 0.5, slot*0.7, d - 4, false); // sides
+          const knob = new THREE.Mesh(new THREE.SphereGeometry(0.014, 16, 12), knobM);
+          knob.position.set(0, (y0 + slot/2)/100, (d/2 + 1)/100); g.add(knob);
+        }
       } else if (kind === 'wardrobe'){
         // Body with three doors on the front (local +z); the middle door is a mirror
         part(g, m, 0, 0, 0, w, H, d - 1.5);
@@ -2250,6 +2303,17 @@ details[open] summary { margin-bottom: 8px; }
   });
   $('main3d').addEventListener('focusout', e => { if (e.target.dataset.room || e.target.dataset.hid) setTimeout(render3DPanel, 0); });
   $('h3resetC').onclick = () => { s3.c = {}; save3(); render3DPanel(); rebuild3D(); toast('Colours reset to the plan colours'); };
+
+  // One-time: the Keukenkastje becomes a drawer unit with 3 clear drawers, turned so they face into the room
+  if (!ls.get('living-room-planner.drawers-v1')){
+    const k = pieces.find(p => p.id === 'high');
+    if (k){
+      k.type = 'drawers';
+      if (k.rot === 0 && k.x === 597.5 && k.y === 265){ k.rot = 90; k.x = 604; }
+    }
+    ls.set(STORE_KEY, pieces);
+    ls.set('living-room-planner.drawers-v1', true);
+  }
 
   // One-time: both clothes cupboards become 3-door wardrobes with a mirror
   if (!ls.get('living-room-planner.wardrobe-v1')){
