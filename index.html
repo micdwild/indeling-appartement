@@ -352,10 +352,7 @@ details[open] summary { margin-bottom: 8px; }
   <main class="layout" id="main3d" hidden>
     <section class="plan-wrap" aria-label="3D view">
       <div class="toolbar">
-        <div class="seg">
-          <button class="toggle" id="v3orbit" aria-pressed="true">Orbit</button>
-          <button class="toggle" id="v3walk" aria-pressed="false" title="Click a spot on the floor to stand there">Walk around</button>
-        </div>
+        <button id="v3back" hidden title="Back to the overview (Esc)">← Overview</button>
         <label class="fov" id="fovWrap" for="fovRange" hidden title="How wide you see, left to right">View angle
           <input id="fovRange" type="range" min="50" max="120" step="1"><output id="fovOut"></output></label>
         <span class="spacer"></span>
@@ -1214,7 +1211,6 @@ details[open] summary { margin-bottom: 8px; }
   const doorOpen = [false, false], doorAngles = [0, 0];
   // Opening windows: 0 = living room 194, 1 = living room 188, 2 = bedroom 190 (the right pane of each)
   const winOpen = [false, false, false], winAngles = [0, 0, 0];
-  let picking = false;
   let walk = { x:274, z:500, yaw:0, pitch:-0.05 };
   const keys = new Set();
 
@@ -1422,15 +1418,26 @@ details[open] summary { margin-bottom: 8px; }
       down = null;
       if (!click) return;
       const hit = firstHit(e);
-      if (picking && view === 'orbit'){
-        // Walk around: stand on the clicked spot, facing the middle of the room
-        if (!hit || !T3.floors.includes(hit.object)){ toast('Click on an empty bit of floor to stand there'); return; }
-        const x = hit.point.x*100, z = hit.point.z*100;
-        if (!canStand(x, z)){ toast('That spot is too close to a wall or the kitchen. Pick a spot a bit further in.'); return; }
-        const dx = 312 - x, dz = 300 - z;
-        walk = { x, z, yaw:Math.atan2(-dx, -dz), pitch:-0.08 };
-        picking = false; view = 'walk'; applyView(true);
-        return;
+      // Overview: clicking the floor puts you there, standing and facing the middle of the room; clicking
+      // a chair or the couch puts you on it, seated. Doors and windows still just open and close.
+      if (view === 'orbit' && doorAt(hit) < 0 && windowAt(hit) < 0){
+        const seat = seatAt(hit), onFloor = hit && T3.floors.includes(hit.object);
+        if (seat){
+          walk = { x:seat.x, z:seat.y, yaw:0, pitch:-0.05 };
+          sitOn(seat, hit.point);
+          Object.assign(walk, { x:walk.goal.x, z:walk.goal.z, goal:null, yaw:walk.sit.yaw, eye:walk.sit.eye });
+          walk.sit.turning = false;
+          view = 'walk'; applyView(true);
+          return;
+        }
+        if (onFloor){
+          const x = hit.point.x*100, z = hit.point.z*100;
+          if (!canStand(x, z)){ toast('That spot is too close to a wall or the kitchen. Pick a spot a bit further in.'); return; }
+          const dx = 312 - x, dz = 300 - z;
+          walk = { x, z, yaw:Math.atan2(-dx, -dz), pitch:-0.08 };
+          view = 'walk'; applyView(true);
+          return;
+        }
       }
       const di = doorAt(hit);
       // Walk mode: click a chair or the couch to sit down on it
@@ -1453,8 +1460,8 @@ details[open] summary { margin-bottom: 8px; }
     renderer.domElement.addEventListener('pointermove', e => {
       if (e.buttons) return;
       const hit = firstHit(e);
-      renderer.domElement.style.cursor = (doorAt(hit) >= 0 || windowAt(hit) >= 0 || (view === 'walk' && seatAt(hit))) && !picking ? 'pointer'
-        : (picking && view === 'orbit') || (view === 'walk' && hit && T3.floors.includes(hit.object)) ? 'crosshair' : '';
+      renderer.domElement.style.cursor = doorAt(hit) >= 0 || windowAt(hit) >= 0 || seatAt(hit) ? 'pointer'
+        : hit && T3.floors.includes(hit.object) ? 'crosshair' : '';
     });
   }
 
@@ -2188,16 +2195,14 @@ details[open] summary { margin-bottom: 8px; }
   }
   function applyView(keepSpot){
     const walking = view === 'walk';
-    $('v3orbit').setAttribute('aria-pressed', !walking && !picking);
-    $('v3walk').setAttribute('aria-pressed', walking || picking);
+    $('v3back').hidden = !walking;
     $('lowWrap').hidden = walking;
     $('walkpad').hidden = !walking;
     $('fovWrap').hidden = !walking;
     $('fovRange').value = s3.fov; $('fovOut').textContent = s3.fov + '°';
     $('hint3d').textContent = walking
-      ? 'Drag to look around. W/S or ↑/↓ to walk, A/D or ←/→ to turn. On a phone, hold the arrow buttons. Click the floor to walk there, or a chair or the couch to sit down. Click a door or window to open or close it.'
-      : picking ? 'Click a spot on the floor to stand there. You can still drag to turn the room first.'
-      : 'Drag to turn the room, scroll or pinch to zoom, right-drag or two fingers to pan. Click the door to open or close it. Move furniture in the Plan view.';
+      ? 'Drag to look around; W/S or ↑/↓ to walk, A/D or ←/→ to turn. Click the floor to walk there, or a chair or the couch to sit down. Press Esc to go back to the overview.'
+      : 'Drag to turn the room, scroll or pinch to zoom. Click the floor to stand there, or a chair or the couch to sit down. Click a door or window to open or close it.';
     if (!T3) return;
     T3.controls.enabled = !walking;
     T3.camera.fov = walking ? walkFov() : 50;
@@ -2211,11 +2216,12 @@ details[open] summary { margin-bottom: 8px; }
     $('fovOut').textContent = s3.fov + '°';
     if (T3 && view === 'walk'){ T3.camera.fov = walkFov(); T3.camera.updateProjectionMatrix(); }
   });
-  $('v3orbit').onclick = () => { picking = false; view = 'orbit'; applyView(); };
-  $('v3walk').onclick = () => {
-    picking = true;
-    if (view === 'walk'){ view = 'orbit'; applyView(); } else applyView(true);
-  };
+  // Leave walking: the Overview button, or Esc
+  const toOverview = () => { if (view !== 'walk') return; view = 'orbit'; keys.clear(); applyView(); };
+  $('v3back').onclick = toOverview;
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && mode === '3d' && !e.target.closest('input, textarea, select')) toOverview();
+  });
   $('v3low').addEventListener('change', e => { lowWalls = e.target.checked; rebuild3D(); });
 
   // ---------- Beautify: path-traced picture while you stand still ----------
