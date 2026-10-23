@@ -1862,10 +1862,31 @@ details[open] summary { margin-bottom: 8px; }
         part(g, m, 0, H - top, 0, w, top, d);
         for (const sx of [-1, 1]) for (const sz of [-1, 1]) part(g, m, sx*(w/2-6), 0, sz*(d/2-6), 5, H - top, 5);
       } else if (kind === 'chair'){
-        const seat = Math.min(45, H);
-        part(g, m, 0, seat - 4, 0, w, 4, d);
-        for (const sx of [-1, 1]) for (const sz of [-1, 1]) part(g, m, sx*(w/2-3), 0, sz*(d/2-3), 4, seat - 4, 4);
-        part(g, m, 0, seat, d/2 - 2.5, w, H - seat, 5);
+        // Light chair: a thin shiny metal frame (four legs; the back legs run up into an upside-down U with a
+        // flat top) carrying a cushioned seat and, with a gap above it, a cushioned back panel in the chair's
+        // colour. The backrest is on the local +z side.
+        const chromeM = mat('#dde1e4', { roughness:0.18, metalness:0.9 });
+        const tube = (x1, y1, z1, x2, y2, z2, r = 0.9) => {
+          const a = new THREE.Vector3(x1, y1, z1), b = new THREE.Vector3(x2, y2, z2), len = a.distanceTo(b);
+          const t = new THREE.Mesh(new THREE.CylinderGeometry(r/100, r/100, len/100, 12), chromeM);
+          t.position.copy(a.clone().add(b).multiplyScalar(0.005));
+          t.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+          t.castShadow = true; t.receiveShadow = true; g.add(t);
+        };
+        const seatTop = Math.min(46, H*0.5), frameY = seatTop - 6, xs = w/2 - 2.5, zf = -(d/2 - 3), zb = d/2 - 3;
+        const top = H - 1, backLow = seatTop + 14;
+        for (const sx of [-1, 1]){
+          tube(sx*xs, 0, zf, sx*xs, frameY, zf);              // front leg
+          tube(sx*xs, 0, zb, sx*xs, top, zb);                 // back leg, running up into the backrest
+          tube(sx*xs, frameY, zf, sx*xs, frameY, zb, 0.8);    // side rail under the seat
+        }
+        tube(-xs, frameY, zf, xs, frameY, zf, 0.8);           // front rail
+        tube(-xs, top, zb, xs, top, zb);                       // flat top of the U
+        tube(-xs, frameY, zb, xs, frameY, zb, 0.8);           // back rail
+        const keep = ROUND; ROUND = 3;
+        part(g, m, 0, frameY + 0.8, -0.5, w - 2, seatTop - frameY - 0.8, d - 5);            // seat cushion
+        part(g, m, 0, backLow, zb - 1.2, 2*xs - 2.2, top - 2.5 - backLow, 4);               // back cushion
+        ROUND = keep;
       } else if (kind === 'desk'){
         // Standing desk: top on two narrow columns, each on a wide foot along the floor
         // Legs go at the two short ends, whichever way the desk is drawn
