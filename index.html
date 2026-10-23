@@ -1958,9 +1958,10 @@ details[open] summary { margin-bottom: 8px; }
         const mesh = new THREE.Mesh(geo, m);
         mesh.castShadow = mesh.receiveShadow = true;
         g.add(mesh);
+        const footM = mat('#151515', { roughness:0.5 });   // black feet
         for (const fa of [-0.36, 0, 0.36]) for (const side of [-1, 1]){
           const la = fa*L*100, lc = side*(W*100/2 - 5);                    // along the length, across the depth (cm)
-          const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.011, feet/100, 16), m);
+          const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.011, feet/100, 16), footM);
           foot.position.set((along ? la : lc)/100, feet/200, (along ? lc : la)/100);
           foot.castShadow = foot.receiveShadow = true; g.add(foot);
         }
